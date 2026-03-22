@@ -852,5 +852,12 @@ html, body {
   });
 })();
 </script>
+<script>
+// Simple theme toggle for landing page
+(function() {
+  var saved = localStorage.getItem('cipher_theme') || 'matrix';
+  document.documentElement.setAttribute('data-theme', saved);
+})();
+</script>
 </body>
 </html>

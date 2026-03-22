@@ -1,107 +1,95 @@
 # CIPHER//NET Desktop (Tauri)
 
-A Tauri v2 wrapper for the CIPHER//NET web app.
-Uses your system WebView — no Chromium bundled, tiny binary.
-
-## Structure
+## Project structure
 
 ```
-tauri/                        ← This folder
+tauri/
+├── setup.sh                 ← Run this first — copies web files into web/
 ├── package.json
-├── src-tauri/
-│   ├── tauri.conf.json       ← App config
-│   ├── Cargo.toml            ← Rust deps
-│   ├── build.rs
-│   └── src/
-│       ├── main.rs
-│       └── lib.rs            ← Tor detection + window setup
-│
-../                           ← Web app files (loaded directly)
-├── index.html
-├── app.js
-├── app.css
-└── ...
+├── web/                     ← Web app files (created by setup.sh)
+│   ├── index.html
+│   ├── app.js
+│   ├── app.css
+│   ├── channels.js
+│   ├── nostr.js
+│   └── ...
+└── src-tauri/
+    ├── tauri.conf.json      ← frontendDist: "../web"
+    ├── Cargo.toml
+    ├── build.rs
+    ├── icons/icon.png
+    └── src/
+        ├── main.rs
+        └── lib.rs
 ```
 
-## Prerequisites
+## Prerequisites (one time)
 
-### 1. Install Rust
+### 1. Rust
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 source ~/.cargo/env
 ```
 
-### 2. Install Linux system dependencies
+### 2. Linux system dependencies
 ```bash
 # Ubuntu / Debian
-sudo apt update
-sudo apt install -y \
-  libwebkit2gtk-4.1-dev \
-  build-essential \
-  curl \
-  wget \
-  file \
-  libxdo-dev \
-  libssl-dev \
-  libayatana-appindicator3-dev \
-  librsvg2-dev
+sudo apt update && sudo apt install -y \
+  libwebkit2gtk-4.1-dev build-essential curl wget file \
+  libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
 
 # Fedora
 sudo dnf install -y \
-  webkit2gtk4.1-devel \
-  openssl-devel \
-  curl \
-  wget \
-  file \
-  libappindicator-gtk3-devel \
-  librsvg2-devel
+  webkit2gtk4.1-devel openssl-devel curl wget file \
+  libappindicator-gtk3-devel librsvg2-devel
 ```
 
-### 3. Install Node.js / npm
+### 3. Node.js
 ```bash
-# Via nvm (recommended)
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
 nvm install --lts
 ```
 
-## Development
+## Setup & run
 
 ```bash
 cd tauri
+
+# 1. Copy web app files into web/ folder (required before dev or build)
+bash setup.sh
+
+# 2. Install JS deps (first time only)
 npm install
+
+# 3. Dev mode
 npm run dev
+
+# 4. Production build
+npm run build
+# Output: src-tauri/target/release/bundle/
 ```
 
-This opens a native window loading `../index.html` directly.
-Edit web app files and the window hot-reloads.
-
-## Build
+## After updating web files
 
 ```bash
-npm run build
+bash setup.sh   # re-copy updated files
+npm run dev     # or npm run build
 ```
 
-Output: `src-tauri/target/release/bundle/`
-- `.deb` package (Debian/Ubuntu)
-- `.AppImage` (portable, runs on any Linux x86_64)
-- `.rpm` (Fedora, optional)
-
-## Why Tauri instead of Electrobun
-
-| | Tauri | Electrobun |
-|---|---|---|
-| Linux x86_64 support | ✅ Stable | ❌ Pre-alpha, broken |
-| Architecture detection | ✅ Automatic | ❌ Manual, unreliable |
-| Binary size | ~5MB | ~100MB |
-| Maturity | v2.0 stable | v0.0.x pre-alpha |
-| WebView | System (WebKitGTK) | System (WebKitGTK) |
-| Your web app works unchanged | ✅ | ✅ |
+---
 
 ## Tor integration
 
-`lib.rs` tries to connect to ports 9150, 9050, 9051 on startup.
+`lib.rs` probes 9150 → 9050 → 9051 at startup.
 If Tor is running, `window.__CIPHERNET_TOR_PROXY__` is set in the
-WebView so `nostr.js` knows to route `.onion` relay connections
-through it.
+WebView so `nostr.js` routes `.onion` relays through it.
 
-Start Tor Browser or `sudo systemctl start tor` before launching.
+---
+
+## Common errors
+
+**Blank page:** Run `bash setup.sh` first to populate `web/`.
+
+**frontendDist error:** Ensure `tauri.conf.json` has `"frontendDist": "../web"` and `web/index.html` exists.
+
+**Identifier ends with .app:** Fixed — now `net.ciphernet.chat`.
