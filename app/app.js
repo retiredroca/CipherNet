@@ -1401,6 +1401,16 @@ if ('serviceWorker' in navigator) {
 document.addEventListener('DOMContentLoaded', () => {
 
   // PQ library diagnostic — logs what noble-pq.js exposed so we can debug global name issues
+  // Tauri desktop integration — fetch Tor proxy from Rust backend
+  if (window.__CIPHERNET_DESKTOP__ && window.__TAURI_INTERNALS__) {
+    import('https://unpkg.com/@tauri-apps/api@2/core').then(({ invoke }) => {
+      invoke('get_tor_proxy').then(proxy => {
+        window.__CIPHERNET_TOR_PROXY__ = proxy;
+        if (proxy) console.log('[CIPHER//NET] Tauri: Tor proxy detected:', proxy);
+      }).catch(() => {});
+    }).catch(() => {});
+  }
+
   // PQ lib loads async — check after a short delay to give the module import time
   setTimeout(function() {
     if (window.ml_dsa65 && window.ml_kem768) {
