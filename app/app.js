@@ -49,11 +49,7 @@ const state = {
   generatedDHPubPem:   null,
 };
 
-const CHANNEL_DESCS = {
-  general: 'AES-256-GCM encrypted · shared passphrase · ECDSA signed',
-  random:  'AES-256-GCM encrypted · shared passphrase',
-  tech:    'AES-256-GCM encrypted · shared passphrase',
-};
+// Channel descriptions now come from CipherChannels dynamically
 
 // ═══════════════════════════════════════════════════════
 // PEM HELPERS
@@ -913,8 +909,12 @@ async function sendMessage() {
 }
 
 async function sendChannelMessage(text) {
-  const aesKey = state.channelKeys[state.channel];
-  if (!aesKey) { toast('Set a channel passphrase first'); return; }
+  // Use CipherChannels key if available, else legacy
+  const aesKey = (window.CipherChannels && window.CipherChannels.getActiveKey(state.channel))
+               || state.channelKeys[state.channel];
+  if (!aesKey && (window.CipherChannels ? window.CipherChannels.get(state.channel)?.passphrase : true)) {
+    toast('Set a channel passphrase first'); return;
+  }
   const ts         = Date.now();
   const sigPayload = JSON.stringify({ text, channel: state.channel, author: state.me.fingerprint, ts });
   const sig        = await signData(sigPayload, state.me.signingKey, state.me.algo);
@@ -924,7 +924,12 @@ async function sendChannelMessage(text) {
     publicKeyPem: state.me.publicKeyPem, ts,
   });
   const ciphertext = await aesEncrypt(envelope, aesKey);
-  persist('cipher_msgs_' + state.channel, { ciphertext, ts, authorHint: state.me.fingerprint.slice(0,6) });
+  const _msgKey = window.CipherChannels
+    ? window.CipherChannels.msgKey(state.channel)
+    : 'cipher_msgs_' + state.channel;
+  persist(_msgKey, { ciphertext, ts, authorHint: state.me.fingerprint.slice(0,6) });
+  // Publish to Nostr relays if enabled
+  if (window._nostrHookChannel) window._nostrHookChannel(state.channel, ciphertext);
   renderMessage({ text, author: state.me.handle, fingerprint: state.me.fingerprint, ts, verified: true, enc: 'AES-256-GCM' });
   scrollToBottom();
 }
@@ -947,6 +952,8 @@ async function sendDM(text) {
   const entry       = { ciphertext, ts, authorHint: state.me.fingerprint.slice(0,6) };
   if (kemCt) entry.kemCiphertext = kemCt; // Include KEM ct so recipient can decapsulate
   persist(dmStorageKey(state.me.fingerprint, fp), entry);
+  // Publish to Nostr relays if enabled
+  if (window._nostrHookDM) window._nostrHookDM(fp, ciphertext);
   renderMessage({ text, author: state.me.handle, fingerprint: state.me.fingerprint, ts, verified: true,
                   enc: isPQDM ? 'ML-KEM-768+AES' : 'ECDH+AES', dm: true });
   scrollToBottom();
@@ -969,8 +976,13 @@ async function loadHistory() {
 }
 
 async function loadChannelHistory(channel) {
-  const aesKey = state.channelKeys[channel];
-  const stored = JSON.parse(localStorage.getItem('cipher_msgs_' + channel) || '[]');
+  // Use CipherChannels key if available, else legacy state.channelKeys
+  const aesKey = (window.CipherChannels && window.CipherChannels.getActiveKey(channel))
+               || state.channelKeys[channel];
+  const msgKey  = window.CipherChannels
+    ? window.CipherChannels.msgKey(channel)
+    : 'cipher_msgs_' + channel;
+  const stored = JSON.parse(localStorage.getItem(msgKey) || '[]');
   for (const entry of stored) {
     if (!aesKey) { renderLocked(entry.ts, entry.authorHint, false); continue; }
     try {
@@ -1199,20 +1211,37 @@ function dismissStorageWarning() {
 // CHANNEL SWITCHING
 // ═══════════════════════════════════════════════════════
 
-function switchChannel(ch) {
+function switchChannel(channelId) {
   state.view    = 'channel';
-  state.channel = ch;
+  state.channel = channelId;
   state.dmPeer  = null;
   document.querySelectorAll('.channel-item, .dm-item').forEach(el => el.classList.remove('active'));
-  document.querySelector('.channel-item[data-channel="' + ch + '"]').classList.add('active');
-  $('channel-title').textContent = '# ' + ch;
-  $('channel-desc').textContent  = CHANNEL_DESCS[ch] || '';
+  const el = document.querySelector('.channel-item[data-channel="' + channelId + '"]');
+  if (el) el.classList.add('active');
+
+  // Use CipherChannels if available, else legacy
+  const ch = window.CipherChannels ? window.CipherChannels.get(channelId) : null;
+  const name = ch ? ch.name : channelId;
+  const desc = ch
+    ? (ch.passphrase ? 'AES-256-GCM · passphrase required · ' : 'Open channel · ') +
+      (ch.type === 'public' ? 'public' : 'private') +
+      (ch.nostrId ? ' · Nostr synced' : '')
+    : '';
+
+  $('channel-title').textContent = '# ' + name;
+  $('channel-desc').textContent  = desc;
   $('passphrase-wrap').classList.remove('hidden');
   $('dm-header-info').classList.add('hidden');
-  updateEncStatus(!!state.channelKeys[ch]);
+
+  // With CipherChannels, active key lives there
+  const hasKey = window.CipherChannels
+    ? window.CipherChannels.canRead(channelId)
+    : !!state.channelKeys[channelId];
+
+  updateEncStatus(hasKey);
   $('messages').innerHTML = '';
   updateMsgInput();
-  loadChannelHistory(ch);
+  loadChannelHistory(channelId);
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1226,8 +1255,10 @@ function onAuthenticated() {
   $('auth-btn').textContent = '[ ' + state.me.handle.toUpperCase() + ' // ONLINE ]';
   $('identity-actions').classList.remove('hidden');
   $('identity-actions').classList.add('visible');
-  loadChannelHistory(state.channel);
   showStorageWarning();
+  // Init dynamic channels (replaces hardcoded loadChannelHistory)
+  if (typeof initChannelsAfterAuth === 'function') initChannelsAfterAuth();
+  else loadChannelHistory(state.channel);
 }
 
 function updateMsgInput() {
@@ -1437,9 +1468,8 @@ document.addEventListener('DOMContentLoaded', () => {
   $('btn-export-identity').addEventListener('click', exportIdentity);
   $('btn-export-backup').addEventListener('click', exportFullBackup);
 
-  document.querySelectorAll('.channel-item').forEach(el =>
-    el.addEventListener('click', () => switchChannel(el.dataset.channel))
-  );
+  // Channel items are rendered dynamically — listener set in renderChannelList()
+  $('btn-channel-manager') && $('btn-channel-manager').addEventListener('click', openChannelModal);
 
   $('msg-input').addEventListener('keydown', e => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
@@ -1825,3 +1855,776 @@ function initPGP() {
 
 // Call initPGP after DOMContentLoaded (appended to existing boot)
 document.addEventListener('DOMContentLoaded', initPGP);
+
+// ═══════════════════════════════════════════════════════
+// NOSTR INTEGRATION
+// ═══════════════════════════════════════════════════════
+
+const nostrEnabled = { value: false };
+const nostrSubs    = {};  // channel/dm → subId
+
+// ── Status UI ────────────────────────────────────────────
+
+function updateNostrStatusBar() {
+  const bar    = $('nostr-status-bar');
+  const dot    = $('nostr-dot');
+  const label  = $('nostr-label');
+  const count  = $('nostr-relay-count');
+  if (!bar) return;
+
+  if (!nostrEnabled.value) {
+    bar.classList.add('hidden'); return;
+  }
+  bar.classList.remove('hidden');
+
+  const status = window.CipherNostr ? window.CipherNostr.getStatus() : {};
+  const total  = Object.keys(status).length;
+  const online = Object.values(status).filter(s => s === 'connected').length;
+
+  count.textContent = online + '/' + total;
+  if (online === 0) { dot.className = 'nostr-dot offline'; label.textContent = 'NOSTR'; }
+  else              { dot.className = 'nostr-dot online';  label.textContent = 'NOSTR'; }
+}
+
+// ── Relay modal ──────────────────────────────────────────
+
+function renderRelayList() {
+  const list = $('nostr-relay-list');
+  if (!list || !window.CipherNostr) return;
+  list.innerHTML = '';
+  const relays = window.CipherNostr.getRelayList();
+  const status = window.CipherNostr.getStatus();
+  relays.forEach(url => {
+    const st  = status[url] || 'disconnected';
+    const row = document.createElement('div');
+    row.className = 'nostr-relay-row';
+    const dot = document.createElement('span');
+    dot.className = 'nostr-relay-dot ' + st;
+    const lbl = document.createElement('span');
+    lbl.className = 'nostr-relay-url'; lbl.textContent = url;
+    lbl.title = st;
+    const rm = document.createElement('button');
+    rm.className = 'btn-tiny danger'; rm.textContent = 'REMOVE';
+    rm.addEventListener('click', () => {
+      window.CipherNostr.removeRelay(url);
+      renderRelayList();
+    });
+    row.appendChild(dot); row.appendChild(lbl); row.appendChild(rm);
+    list.appendChild(row);
+  });
+}
+
+function openNostrModal() {
+  renderRelayList();
+  const pub = $('nostr-transport-pub');
+  if (pub && window.CipherNostr) pub.textContent = window.CipherNostr.getTransportPubKey() || 'Not initialized';
+  $('nostr-modal').classList.remove('hidden');
+}
+
+// ── Enable / disable Nostr ────────────────────────────────
+
+async function enableNostr() {
+  if (!window.CipherNostr) { toast('nostr.js not loaded'); return; }
+  const btn = $('btn-nostr-toggle');
+  btn.textContent = 'CONNECTING...'; btn.disabled = true;
+
+  const ok = await window.CipherNostr.init(
+    onNostrMessage,
+    (url, status) => {
+      updateNostrStatusBar();
+      renderRelayList();
+    }
+  );
+
+  nostrEnabled.value = ok;
+  btn.textContent = ok ? 'NOSTR: ON' : 'NOSTR: OFF';
+  btn.disabled = false;
+  btn.classList.toggle('active', ok);
+
+  if (ok) {
+    subscribeNostrChannels();
+    subscribeNostrDMs();
+    updateNostrStatusBar();
+    toast('Nostr connected — syncing messages');
+  } else {
+    toast('Nostr init failed — check console');
+  }
+}
+
+function disableNostr() {
+  nostrEnabled.value = false;
+  for (const subId of Object.values(nostrSubs))
+    window.CipherNostr.unsubscribe(subId);
+  Object.keys(nostrSubs).forEach(k => delete nostrSubs[k]);
+  const btn = $('btn-nostr-toggle');
+  btn.textContent = 'NOSTR: OFF';
+  btn.classList.remove('active');
+  updateNostrStatusBar();
+}
+
+// ── Subscribe to channels and DMs ────────────────────────
+
+async function subscribeNostrChannels() {
+  for (const ch of ['general', 'random', 'tech']) {
+    if (nostrSubs[ch]) window.CipherNostr.unsubscribe(nostrSubs[ch]);
+    nostrSubs[ch] = await window.CipherNostr.subscribeChannel(ch, (event, relayUrl) => {
+      onNostrChannelEvent(ch, event);
+    });
+  }
+}
+
+function subscribeNostrDMs() {
+  if (nostrSubs.dms) window.CipherNostr.unsubscribe(nostrSubs.dms);
+  nostrSubs.dms = window.CipherNostr.subscribeDMs(async (event, relayUrl) => {
+    try {
+      const { payload, senderPubKey, ts } = await window.CipherNostr.unwrapDM(event);
+      onNostrDMEvent(payload, senderPubKey, ts);
+    } catch (e) {
+      console.warn('[Nostr] DM unwrap failed:', e.message);
+    }
+  });
+}
+
+// ── Handle incoming Nostr events ─────────────────────────
+
+async function onNostrChannelEvent(channel, event) {
+  // event.content is the CIPHER//NET ciphertext envelope
+  const ciphertext = event.content;
+  const ts         = event.created_at * 1000;
+  const authorHint = event.pubkey.slice(0, 6);
+
+  // Deduplicate by Nostr event ID
+  const seenKey = 'cipher_nostr_seen_' + event.id;
+  if (sessionStorage.getItem(seenKey)) return;
+  sessionStorage.setItem(seenKey, '1');
+
+  // Persist to localStorage in the same format as local messages
+  persist('cipher_msgs_' + channel, { ciphertext, ts, authorHint, nostrId: event.id });
+
+  // If this channel is currently active, render it
+  if (state.view === 'channel' && state.channel === channel && state.channelKeys[channel]) {
+    try {
+      const env      = JSON.parse(await aesDecrypt(ciphertext, state.channelKeys[channel]));
+      const verified = await verifyData(env.sigPayload, env.sig, env.publicKeyPem, env.algo);
+      renderMessage({ text: env.text, author: env.handle, fingerprint: env.author, ts, verified, enc: 'AES-256-GCM·NOSTR' });
+      scrollToBottom();
+    } catch { /* wrong key or not for us */ }
+  }
+}
+
+async function onNostrDMEvent(payload, senderNostrPub, ts) {
+  // payload is CIPHER//NET DM ciphertext — we need to find which peer sent it
+  // Match by nostr pubkey stored on user records
+  const users = getStoredUsers();
+  let peerFp  = null;
+  for (const [fp, u] of Object.entries(users)) {
+    if (u.nostrPub === senderNostrPub) { peerFp = fp; break; }
+  }
+  if (!peerFp) {
+    console.log('[Nostr] DM from unknown Nostr pubkey:', senderNostrPub.slice(0,16));
+    return;
+  }
+
+  const seenKey = 'cipher_nostr_dm_seen_' + ts + '_' + senderNostrPub.slice(0,8);
+  if (sessionStorage.getItem(seenKey)) return;
+  sessionStorage.setItem(seenKey, '1');
+
+  persist(dmStorageKey(state.me.fingerprint, peerFp),
+    { ciphertext: payload, ts, authorHint: peerFp.slice(0, 6) });
+
+  if (state.view === 'dm' && state.dmPeer && state.dmPeer.fingerprint === peerFp) {
+    const dmKey = state.dmKeys[peerFp];
+    if (dmKey) {
+      try {
+        const env      = JSON.parse(await aesDecrypt(payload, dmKey));
+        const verified = await verifyData(env.sigPayload, env.sig, env.publicKeyPem, env.algo);
+        renderMessage({ text: env.text, author: env.handle, fingerprint: env.from, ts, verified, enc: 'NOSTR·NIP44+AES', dm: true });
+        scrollToBottom();
+      } catch { /* can't decrypt */ }
+    }
+  }
+}
+
+function onNostrMessage(event, payload) {
+  // Generic handler — specific handling done in channel/DM callbacks above
+}
+
+// ── Hook into send functions ─────────────────────────────
+
+const _origSendChannelMessage = sendChannelMessage;
+window._nostrHookChannel = async function(channel, ciphertext) {
+  if (!nostrEnabled.value || !window.CipherNostr || !window.CipherNostr.isReady()) return;
+  try {
+    await window.CipherNostr.publishChannelMessage(channel, ciphertext);
+  } catch (e) {
+    console.warn('[Nostr] Channel publish failed:', e.message);
+  }
+};
+
+const _origSendDM = sendDM;
+window._nostrHookDM = async function(peerFp, ciphertext) {
+  if (!nostrEnabled.value || !window.CipherNostr || !window.CipherNostr.isReady()) return;
+  const users = getStoredUsers();
+  const peer  = users[peerFp];
+  if (!peer || !peer.nostrPub) {
+    console.log('[Nostr] Peer has no Nostr pubkey — DM not sent via Nostr');
+    return;
+  }
+  try {
+    await window.CipherNostr.publishDM(peer.nostrPub, ciphertext);
+  } catch (e) {
+    console.warn('[Nostr] DM publish failed:', e.message);
+  }
+};
+
+// ── Store our Nostr pubkey on our user record ────────────
+
+function registerNostrPubkey() {
+  if (!window.CipherNostr || !state.me) return;
+  const nostrPub = window.CipherNostr.getTransportPubKey();
+  if (!nostrPub) return;
+  const users = getStoredUsers();
+  if (users[state.me.fingerprint]) {
+    users[state.me.fingerprint].nostrPub = nostrPub;
+    localStorage.setItem('cipher_users', JSON.stringify(users));
+  }
+}
+
+// ── Wire up Nostr UI in DOMContentLoaded ────────────────
+
+document.addEventListener('DOMContentLoaded', function initNostrUI() {
+  const toggleBtn = $('btn-nostr-toggle');
+  if (toggleBtn) toggleBtn.addEventListener('click', () => {
+    if (nostrEnabled.value) disableNostr();
+    else enableNostr().then(() => registerNostrPubkey());
+  });
+
+  const relaysBtn = $('btn-nostr-relays');
+  if (relaysBtn) relaysBtn.addEventListener('click', openNostrModal);
+
+  const closeBtn = $('nostr-modal-close');
+  if (closeBtn) closeBtn.addEventListener('click', () => $('nostr-modal').classList.add('hidden'));
+
+  $('nostr-modal') && $('nostr-modal').addEventListener('click', e => {
+    if (e.target === $('nostr-modal')) $('nostr-modal').classList.add('hidden');
+  });
+
+  const addBtn = $('nostr-relay-add');
+  if (addBtn) addBtn.addEventListener('click', () => {
+    const input = $('nostr-relay-input');
+    const url   = input && input.value.trim();
+    if (!url) return;
+    if (!url.startsWith('ws://') && !url.startsWith('wss://'))
+      { toast('Relay URL must start with ws:// or wss://'); return; }
+    window.CipherNostr && window.CipherNostr.addRelay(url);
+    if (input) input.value = '';
+    renderRelayList();
+    toast('Relay added: ' + url);
+  });
+
+  const reconnBtn = $('nostr-reconnect-btn');
+  if (reconnBtn) reconnBtn.addEventListener('click', () => {
+    if (window.CipherNostr) {
+      for (const url of window.CipherNostr.getRelayList()) {
+        window.CipherNostr.addRelay(url);
+      }
+      toast('Reconnecting all relays...');
+      setTimeout(renderRelayList, 1000);
+    }
+  });
+});
+
+// ═══════════════════════════════════════════════════════
+// CHANNEL MANAGER UI
+// ═══════════════════════════════════════════════════════
+
+let _activeSettingsChannelId = null;
+
+// ── Render channel sidebar ───────────────────────────────
+
+function renderChannelList() {
+  const list = $('channel-list');
+  if (!list) return;
+  list.innerHTML = '';
+
+  const channels = window.CipherChannels ? window.CipherChannels.getJoined() : [];
+  if (!channels.length) {
+    const e = document.createElement('div');
+    e.className   = 'ch-empty';
+    e.textContent = 'No channels — click + to create or join';
+    list.appendChild(e);
+    return;
+  }
+
+  channels.forEach(ch => {
+    const div  = document.createElement('div');
+    const isActive = state.channel === ch.id;
+    div.className  = 'channel-item' + (isActive ? ' active' : '');
+    div.dataset.channel = ch.id;
+
+    const role    = state.me ? window.CipherChannels.getRole(ch.id, state.me.fingerprint) : 'guest';
+    const hasKey  = window.CipherChannels.canRead(ch.id);
+    const lockIcon = ch.passphrase ? (hasKey ? '🔓' : '🔒') : '#';
+    const roleTag  = role === 'owner' ? ' ★' : role === 'admin' ? ' ⬆' : '';
+
+    div.innerHTML =
+      '<span class="ch-icon">' + lockIcon + '</span>' +
+      '<span class="ch-name">' + escHtml(ch.name) + roleTag + '</span>' +
+      (ch.type === 'private' ? '<span class="ch-private-badge">PVT</span>' : '');
+
+    div.addEventListener('click', () => switchChannel(ch.id));
+    div.addEventListener('contextmenu', e => {
+      e.preventDefault();
+      openChannelSettings(ch.id);
+    });
+
+    list.appendChild(div);
+  });
+}
+
+// ── Channel modal tabs ───────────────────────────────────
+
+function openChannelModal() {
+  switchChTab('my');
+  renderMyChannels();
+  $('channel-modal').classList.remove('hidden');
+}
+
+function closeChannelModal() {
+  $('channel-modal').classList.add('hidden');
+}
+
+function switchChTab(tab) {
+  ['my','browse','create','join'].forEach(t => {
+    $('ch-tab-'    + t).classList.toggle('active', t === tab);
+    $('ch-panel-'  + t).classList.toggle('hidden',  t !== tab);
+  });
+}
+
+// ── My channels panel ────────────────────────────────────
+
+function renderMyChannels() {
+  const list = $('ch-my-list');
+  if (!list) return;
+  list.innerHTML = '';
+  const channels = window.CipherChannels ? window.CipherChannels.getJoined() : [];
+  if (!channels.length) {
+    list.innerHTML = '<div class="ch-empty">You have not joined any channels yet.</div>';
+    return;
+  }
+  channels.forEach(ch => {
+    const role   = state.me ? window.CipherChannels.getRole(ch.id, state.me.fingerprint) : 'guest';
+    const hasKey = window.CipherChannels.canRead(ch.id);
+    list.appendChild(buildChannelRow(ch, role, hasKey, true));
+  });
+}
+
+// ── Browse panel ─────────────────────────────────────────
+
+function renderBrowseChannels() {
+  const list = $('ch-browse-list');
+  if (!list) return;
+  list.innerHTML = '';
+  const all    = window.CipherChannels ? window.CipherChannels.getAll() : [];
+  const public_ = all.filter(c => c.type === 'public');
+  if (!public_.length) {
+    list.innerHTML = '<div class="ch-empty">No public channels discovered yet. Enable Nostr to find channels.</div>';
+    return;
+  }
+  public_.forEach(ch => {
+    const joined = window.CipherChannels.getJoined().some(c => c.id === ch.id);
+    const role   = state.me ? window.CipherChannels.getRole(ch.id, state.me.fingerprint) : null;
+    list.appendChild(buildChannelRow(ch, role, false, joined));
+  });
+}
+
+function buildChannelRow(ch, role, hasKey, joined) {
+  const div = document.createElement('div');
+  div.className = 'ch-row';
+
+  const info = document.createElement('div');
+  info.className = 'ch-row-info';
+  info.innerHTML =
+    '<span class="ch-row-name">' + (ch.passphrase ? '🔒 ' : '# ') + escHtml(ch.name) + '</span>' +
+    '<span class="ch-row-type ' + ch.type + '">' + ch.type.toUpperCase() + '</span>' +
+    (role === 'owner' ? '<span class="ch-row-role">OWNER</span>' : '') +
+    (role === 'admin' ? '<span class="ch-row-role">ADMIN</span>'  : '') +
+    (ch.description ? '<div class="ch-row-desc">' + escHtml(ch.description) + '</div>' : '');
+
+  const btns = document.createElement('div');
+  btns.className = 'ch-row-btns';
+
+  if (joined) {
+    const switchBtn = document.createElement('button');
+    switchBtn.className   = 'btn-tiny';
+    switchBtn.textContent = 'OPEN';
+    switchBtn.addEventListener('click', () => { switchChannel(ch.id); closeChannelModal(); });
+    btns.appendChild(switchBtn);
+
+    const settBtn = document.createElement('button');
+    settBtn.className   = 'btn-tiny';
+    settBtn.textContent = 'SETTINGS';
+    settBtn.addEventListener('click', () => { closeChannelModal(); openChannelSettings(ch.id); });
+    btns.appendChild(settBtn);
+
+    const leaveBtn = document.createElement('button');
+    leaveBtn.className   = 'btn-tiny danger';
+    leaveBtn.textContent = role === 'owner' ? 'ARCHIVE' : 'LEAVE';
+    leaveBtn.addEventListener('click', async () => {
+      if (!confirm(role === 'owner' ? 'Archive this channel?' : 'Leave this channel?')) return;
+      if (role === 'owner') {
+        await window.CipherChannels.archive(ch.id, state.me.fingerprint, state.me.signingKey, state.me.algo);
+      } else {
+        window.CipherChannels.leave(ch.id);
+      }
+      renderMyChannels();
+      renderChannelList();
+    });
+    btns.appendChild(leaveBtn);
+  } else {
+    const joinBtn = document.createElement('button');
+    joinBtn.className   = 'btn-tiny';
+    joinBtn.textContent = ch.passphrase ? 'JOIN (needs passphrase)' : 'JOIN';
+    joinBtn.addEventListener('click', () => promptJoinChannel(ch));
+    btns.appendChild(joinBtn);
+  }
+
+  div.appendChild(info);
+  div.appendChild(btns);
+  return div;
+}
+
+async function promptJoinChannel(ch) {
+  let passphrase = null;
+  if (ch.passphrase) {
+    passphrase = prompt('Enter passphrase for #' + ch.name + ':');
+    if (passphrase === null) return;
+  }
+  try {
+    await window.CipherChannels.join(ch.id, passphrase);
+    renderChannelList();
+    renderMyChannels();
+    toast('Joined #' + ch.name);
+    switchChannel(ch.id);
+    closeChannelModal();
+  } catch (e) { alert('Could not join: ' + e.message); }
+}
+
+// ── Create channel ───────────────────────────────────────
+
+async function createChannel() {
+  if (!state.me) { toast('Sign in first'); return; }
+  const name = $('ch-create-name').value.trim();
+  const desc = $('ch-create-desc').value.trim();
+  const type = $('ch-create-type').value;
+  const pass = $('ch-create-pass').value || null;
+  const errEl = $('ch-create-error');
+  errEl.classList.add('hidden');
+
+  const btn = $('ch-create-btn');
+  btn.textContent = 'CREATING...'; btn.disabled = true;
+
+  try {
+    const ch = await window.CipherChannels.create(
+      { name, description: desc, type, passphrase: pass },
+      state.me.fingerprint,
+      state.me.publicKeyPem,
+      state.me.signingKey,
+      state.me.algo
+    );
+    $('ch-create-name').value = '';
+    $('ch-create-desc').value = '';
+    $('ch-create-pass').value = '';
+    renderChannelList();
+    toast('Channel #' + ch.name + ' created');
+    switchChannel(ch.id);
+    closeChannelModal();
+  } catch (e) {
+    errEl.textContent = e.message;
+    errEl.classList.remove('hidden');
+  }
+  btn.textContent = 'CREATE CHANNEL'; btn.disabled = false;
+}
+
+// ── Join via invite ──────────────────────────────────────
+
+async function joinViaInvite() {
+  if (!state.me) { toast('Sign in first'); return; }
+  const token = $('ch-join-invite').value.trim();
+  const errEl = $('ch-join-error');
+  errEl.classList.add('hidden');
+  if (!token) { errEl.textContent = 'Paste an invite token.'; errEl.classList.remove('hidden'); return; }
+
+  const btn = $('ch-join-btn');
+  btn.textContent = 'JOINING...'; btn.disabled = true;
+
+  try {
+    // Find inviter in user registry to verify signature
+    const { token: t } = await parseInviteToken(token);
+    const users  = getStoredUsers();
+    const inviter = users[t.inviterFp];
+    if (!inviter) throw new Error('Inviter not found in your user registry. Import their public identity first.');
+
+    const ch = await window.CipherChannels.joinViaInvite(token, inviter.publicKeyPem, inviter.algo);
+    $('ch-join-invite').value = '';
+    renderChannelList();
+    toast('Joined #' + ch.name);
+    switchChannel(ch.id);
+    closeChannelModal();
+  } catch (e) {
+    errEl.textContent = e.message;
+    errEl.classList.remove('hidden');
+  }
+  btn.textContent = 'JOIN CHANNEL'; btn.disabled = false;
+}
+
+async function parseInviteToken(b64) {
+  try { return JSON.parse(atob(b64)); }
+  catch (e) { throw new Error('Invalid invite token'); }
+}
+
+// ── Channel settings modal ───────────────────────────────
+
+async function openChannelSettings(channelId) {
+  if (!window.CipherChannels) return;
+  const ch   = window.CipherChannels.get(channelId);
+  if (!ch) return;
+  _activeSettingsChannelId = channelId;
+
+  const role   = state.me ? window.CipherChannels.getRole(channelId, state.me.fingerprint) : 'guest';
+  const isOwner = role === 'owner';
+  const isAdmin = role === 'admin' || isOwner;
+
+  $('ch-settings-title').textContent = '// #' + ch.name.toUpperCase() + ' — SETTINGS';
+  $('ch-settings-error').classList.add('hidden');
+
+  // Role badge
+  const badge = $('ch-settings-role-badge');
+  badge.textContent = 'YOUR ROLE: ' + role.toUpperCase();
+  badge.className   = 'ch-role-badge role-' + role;
+
+  // Passphrase section (admin/owner)
+  const passSection = $('ch-settings-pass-section');
+  passSection.classList.toggle('hidden', !isAdmin);
+  if (isAdmin) {
+    $('ch-settings-pass-status').textContent = ch.passphrase
+      ? 'Currently: passphrase set (write-protected)'
+      : 'Currently: open channel (no passphrase)';
+    $('ch-settings-pass-input').value = '';
+  }
+
+  // Member management (owner only)
+  const adminSection = $('ch-settings-admin-section');
+  adminSection.classList.toggle('hidden', !isOwner);
+  if (isOwner) renderMemberList(ch);
+
+  // Invite section (admin/owner)
+  $('ch-settings-invite-section').classList.toggle('hidden', !isAdmin);
+  $('ch-settings-invite-out').classList.add('hidden');
+  $('ch-settings-invite-copy').classList.add('hidden');
+
+  // Archive section (owner only)
+  $('ch-settings-archive-section').classList.toggle('hidden', !isOwner);
+
+  $('channel-settings-modal').classList.remove('hidden');
+}
+
+function renderMemberList(ch) {
+  const list  = $('ch-settings-member-list');
+  if (!list) return;
+  list.innerHTML = '';
+  const users = getStoredUsers();
+
+  Object.values(users).forEach(u => {
+    if (u.fingerprint === ch.ownerFp) return; // skip owner
+    const isBanned = ch.banned.includes(u.fingerprint);
+    const isAdmin  = ch.admins.includes(u.fingerprint);
+    const row = document.createElement('div');
+    row.className = 'ch-member-row' + (isBanned ? ' banned' : '');
+
+    const name = document.createElement('span');
+    name.className   = 'ch-member-name';
+    name.textContent = u.handle + ' ' + (isAdmin ? '[ADMIN]' : '') + (isBanned ? '[BANNED]' : '');
+    row.appendChild(name);
+
+    if (!isBanned) {
+      if (!isAdmin) {
+        const promBtn = document.createElement('button');
+        promBtn.className   = 'btn-tiny';
+        promBtn.textContent = 'PROMOTE';
+        promBtn.addEventListener('click', async () => {
+          await window.CipherChannels.promote(ch.id, u.fingerprint, state.me.fingerprint, state.me.signingKey, state.me.algo);
+          renderMemberList(window.CipherChannels.get(ch.id));
+          toast(u.handle + ' promoted to admin');
+        });
+        row.appendChild(promBtn);
+      } else {
+        const demBtn = document.createElement('button');
+        demBtn.className   = 'btn-tiny';
+        demBtn.textContent = 'DEMOTE';
+        demBtn.addEventListener('click', async () => {
+          await window.CipherChannels.demote(ch.id, u.fingerprint, state.me.fingerprint, state.me.signingKey, state.me.algo);
+          renderMemberList(window.CipherChannels.get(ch.id));
+          toast(u.handle + ' demoted');
+        });
+        row.appendChild(demBtn);
+      }
+      const banBtn = document.createElement('button');
+      banBtn.className   = 'btn-tiny danger';
+      banBtn.textContent = 'BAN';
+      banBtn.addEventListener('click', async () => {
+        if (!confirm('Ban ' + u.handle + ' from this channel?')) return;
+        await window.CipherChannels.ban(ch.id, u.fingerprint, state.me.fingerprint, state.me.signingKey, state.me.algo);
+        renderMemberList(window.CipherChannels.get(ch.id));
+        toast(u.handle + ' banned');
+      });
+      row.appendChild(banBtn);
+    } else {
+      const unbanBtn = document.createElement('button');
+      unbanBtn.className   = 'btn-tiny';
+      unbanBtn.textContent = 'UNBAN';
+      unbanBtn.addEventListener('click', async () => {
+        await window.CipherChannels.unban(ch.id, u.fingerprint, state.me.fingerprint, state.me.signingKey, state.me.algo);
+        renderMemberList(window.CipherChannels.get(ch.id));
+        toast(u.handle + ' unbanned');
+      });
+      row.appendChild(unbanBtn);
+    }
+    list.appendChild(row);
+  });
+
+  if (!list.children.length)
+    list.innerHTML = '<div class="ch-empty">No other users in registry yet.</div>';
+}
+
+// ── Wire up channel UI ────────────────────────────────────
+
+document.addEventListener('DOMContentLoaded', function initChannelUI() {
+  if (!$('ch-tab-my')) return;
+
+  // Tab switching
+  $('ch-tab-my').addEventListener('click',     () => { switchChTab('my');     renderMyChannels(); });
+  $('ch-tab-browse').addEventListener('click', () => { switchChTab('browse'); renderBrowseChannels(); });
+  $('ch-tab-create').addEventListener('click', () => switchChTab('create'));
+  $('ch-tab-join').addEventListener('click',   () => switchChTab('join'));
+
+  // Close buttons
+  ['my','browse','create','join'].forEach(t => {
+    const btn = $('ch-modal-close-' + t);
+    if (btn) btn.addEventListener('click', closeChannelModal);
+  });
+
+  // Backdrop
+  $('channel-modal').addEventListener('click', e => {
+    if (e.target === $('channel-modal')) closeChannelModal();
+  });
+
+  // Create
+  $('ch-create-btn').addEventListener('click', createChannel);
+
+  // Join via invite
+  $('ch-join-btn').addEventListener('click', joinViaInvite);
+
+  // Browse refresh
+  $('ch-browse-refresh').addEventListener('click', renderBrowseChannels);
+
+  // Settings modal
+  $('ch-settings-close').addEventListener('click', () => $('channel-settings-modal').classList.add('hidden'));
+  $('channel-settings-modal').addEventListener('click', e => {
+    if (e.target === $('channel-settings-modal')) $('channel-settings-modal').classList.add('hidden');
+  });
+
+  // Update passphrase
+  $('ch-settings-pass-btn').addEventListener('click', async () => {
+    const id   = _activeSettingsChannelId;
+    const pass = $('ch-settings-pass-input').value || null;
+    const errEl = $('ch-settings-error');
+    try {
+      await window.CipherChannels.setPassphrase(id, pass, state.me.fingerprint, state.me.signingKey, state.me.algo);
+      errEl.classList.add('hidden');
+      toast('Passphrase updated for #' + window.CipherChannels.get(id).name);
+      openChannelSettings(id); // refresh
+    } catch (e) { errEl.textContent = e.message; errEl.classList.remove('hidden'); }
+  });
+
+  // Generate invite
+  $('ch-settings-invite-btn').addEventListener('click', async () => {
+    const id = _activeSettingsChannelId;
+    try {
+      const token = await window.CipherChannels.invite(id, state.me.fingerprint, state.me.signingKey, state.me.algo);
+      const out = $('ch-settings-invite-out');
+      const copyBtn = $('ch-settings-invite-copy');
+      out.value = token;
+      out.classList.remove('hidden');
+      copyBtn.classList.remove('hidden');
+      copyBtn.onclick = () => {
+        navigator.clipboard.writeText(token).then(() => toast('Invite token copied'));
+      };
+    } catch (e) {
+      $('ch-settings-error').textContent = e.message;
+      $('ch-settings-error').classList.remove('hidden');
+    }
+  });
+
+  // Archive
+  $('ch-settings-archive-btn').addEventListener('click', async () => {
+    const id = _activeSettingsChannelId;
+    const ch = window.CipherChannels.get(id);
+    if (!confirm('Archive #' + ch.name + '? This cannot be undone.')) return;
+    try {
+      await window.CipherChannels.archive(id, state.me.fingerprint, state.me.signingKey, state.me.algo);
+      $('channel-settings-modal').classList.add('hidden');
+      renderChannelList();
+      toast('Channel archived');
+    } catch (e) {
+      $('ch-settings-error').textContent = e.message;
+      $('ch-settings-error').classList.remove('hidden');
+    }
+  });
+
+  // Init CipherChannels
+  if (window.CipherChannels) {
+    window.CipherChannels.init(() => {
+      renderChannelList();
+    });
+    // Hook Nostr incoming messages to channels
+    window._channelNostrHandler = async (channelId, event) => {
+      const ch = window.CipherChannels.get(channelId);
+      if (!ch) return;
+      const ciphertext = event.content;
+      const ts         = event.created_at * 1000;
+      const seenKey    = 'cipher_nostr_ch_seen_' + event.id;
+      if (sessionStorage.getItem(seenKey)) return;
+      sessionStorage.setItem(seenKey, '1');
+      const msgKey = window.CipherChannels.msgKey(channelId);
+      persist(msgKey, { ciphertext, ts, authorHint: event.pubkey.slice(0,6), nostrId: event.id });
+      if (state.view === 'channel' && state.channel === channelId) {
+        const aesKey = window.CipherChannels.getActiveKey(channelId);
+        if (aesKey) {
+          try {
+            const env      = JSON.parse(await aesDecrypt(ciphertext, aesKey));
+            const verified = await verifyData(env.sigPayload, env.sig, env.publicKeyPem, env.algo);
+            renderMessage({ text: env.text, author: env.handle, fingerprint: env.author,
+                            ts, verified, enc: 'AES-256-GCM·NOSTR' });
+            scrollToBottom();
+          } catch {}
+        }
+      }
+    };
+  }
+});
+
+// Called after authentication
+function initChannelsAfterAuth() {
+  if (!window.CipherChannels) return;
+  window.CipherChannels.restoreKeys().then(() => {
+    renderChannelList();
+    // Auto-switch to first joined channel
+    const joined = window.CipherChannels.getJoined();
+    if (joined.length) switchChannel(joined[0].id);
+    else {
+      $('channel-title').textContent = 'CIPHER//NET';
+      $('channel-desc').textContent  = 'Create or join a channel to start chatting';
+    }
+  });
+}
