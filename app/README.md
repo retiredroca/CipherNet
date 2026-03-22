@@ -69,6 +69,7 @@ embed-fonts.py       — optional: bakes fonts as base64 for fully offline use
 openpgp.min.js       — OpenPGP.js v5 (download separately — see GET_OPENPGP.md)
 GET_OPENPGP.md       — download instructions for openpgp.min.js
 README.md            — this file
+landing.html         — GitHub Pages landing page (rename to index.html in repo root)
 ```
 
 > **Post-quantum library** (`@noble/post-quantum`) loads automatically from esm.sh CDN — no local file required for online deployments. For offline/OnionShare use, see `GET_OPENPGP.md`.

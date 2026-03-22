@@ -4,8 +4,8 @@
   "description": "CIPHER//NET — end-to-end encrypted decentralized chat",
   "type": "module",
   "scripts": {
-    "dev":   "electrobun dev src/main.ts",
-    "build": "electrobun build src/main.ts",
+    "dev":   "electrobun dev src/index.ts",
+    "build": "electrobun build src/index.ts",
     "start": "electrobun run"
   },
   "dependencies": {
