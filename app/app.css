@@ -313,58 +313,7 @@
   --green3: var(--accent3); --green-dim: var(--accent-dim);
 }
 
-/* ─── THEME SWITCHER PANEL ─────────────────────────── */
-.theme-switcher {
-  position: fixed;
-  bottom: 48px;
-  right: 0;
-  z-index: 500;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-right: none;
-  padding: 8px;
-  display: none;
-  flex-direction: column;
-  gap: 2px;
-  max-height: 360px;
-  overflow-y: auto;
-}
-.theme-switcher.open { display: flex; }
-
-.theme-btn {
-  background: none;
-  border: 1px solid transparent;
-  color: var(--text-dim);
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 1px;
-  padding: 5px 10px;
-  cursor: pointer;
-  text-align: left;
-  white-space: nowrap;
-  transition: all 0.1s;
-}
-.theme-btn:hover   { border-color: var(--border); color: var(--text); }
-.theme-btn.active  { border-color: var(--accent); color: var(--accent); }
-
-.theme-toggle-btn {
-  position: fixed;
-  bottom: 12px;
-  right: 0;
-  z-index: 501;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-right: none;
-  color: var(--text-dim);
-  font-family: var(--mono);
-  font-size: 9px;
-  letter-spacing: 2px;
-  padding: 5px 8px;
-  cursor: pointer;
-  writing-mode: vertical-rl;
-  text-orientation: mixed;
-}
-.theme-toggle-btn:hover { color: var(--accent); border-color: var(--accent); }
+/* ─── THEME SWITCHER — in sidebar select, no floating button needed ── */
 
 /* ─── RESET ───────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }

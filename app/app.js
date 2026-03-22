@@ -1256,6 +1256,8 @@ function onAuthenticated() {
   $('identity-actions').classList.remove('hidden');
   $('identity-actions').classList.add('visible');
   showStorageWarning();
+  // Sync theme select now that sidebar is visible
+  if (window._themeAuthHook) window._themeAuthHook();
   // Init dynamic channels (replaces hardcoded loadChannelHistory)
   if (typeof initChannelsAfterAuth === 'function') initChannelsAfterAuth();
   else loadChannelHistory(state.channel);
@@ -2648,39 +2650,33 @@ const THEME_KEY = 'cipher_theme';
 function applyTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme);
   localStorage.setItem(THEME_KEY, theme);
-  // Update active button
-  document.querySelectorAll('.theme-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.theme === theme);
-  });
+  // Sync the select dropdown if present
+  const sel = $('theme-select');
+  if (sel) sel.value = theme;
 }
 
 function initTheme() {
   const saved = localStorage.getItem(THEME_KEY) || 'matrix';
   applyTheme(saved);
 
-  const toggleBtn  = $('theme-toggle-btn');
-  const switcher   = $('theme-switcher');
-  if (!toggleBtn || !switcher) return;
-
-  // Toggle panel
-  toggleBtn.addEventListener('click', e => {
-    e.stopPropagation();
-    switcher.classList.toggle('open');
-  });
-
-  // Close on outside click
-  document.addEventListener('click', e => {
-    if (!switcher.contains(e.target) && e.target !== toggleBtn)
-      switcher.classList.remove('open');
-  });
-
-  // Theme buttons
-  switcher.querySelectorAll('.theme-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      applyTheme(btn.dataset.theme);
-      toast('Theme: ' + btn.textContent.trim());
+  // Wire up the sidebar select once the app is authenticated
+  // (sidebar is hidden until login so we listen on DOMContentLoaded
+  //  but also re-wire after auth in case the element wasn't ready)
+  function wireThemeSelect() {
+    const sel = $('theme-select');
+    if (!sel || sel._wired) return;
+    sel._wired = true;
+    sel.value = localStorage.getItem(THEME_KEY) || 'matrix';
+    sel.addEventListener('change', () => {
+      applyTheme(sel.value);
+      toast('Theme: ' + sel.options[sel.selectedIndex].text.trim());
     });
-  });
+  }
+
+  document.addEventListener('DOMContentLoaded', wireThemeSelect);
+  // Also wire after auth (sidebar becomes visible)
+  const _origOnAuth = window.onAuthenticated;
+  window._themeAuthHook = wireThemeSelect;
 }
 
-document.addEventListener('DOMContentLoaded', initTheme);
+initTheme();
