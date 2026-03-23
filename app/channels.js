@@ -257,14 +257,14 @@ const Channels = {
 
     saveChannels();
 
-    // Publish to Nostr if available
+    // Publish to Nostr if available — the event ID becomes the canonical channel ID
     if (window.CipherNostr && window.CipherNostr.isReady() && type === 'public') {
       try {
-        const nostrId = await publishChannelCreation(ch);
-        ch.nostrId = nostrId;
-        saveChannels();
+        await Channels.publishToNostr(ch);
       } catch (e) { console.warn('[Channels] Nostr publish failed:', e.message); }
     }
+    // Subscribe to Nostr messages for this channel
+    Channels.subscribeNew(ch);
 
     if (channelState.onUpdate) channelState.onUpdate();
     return ch;
@@ -566,47 +566,7 @@ async function deriveChannelAESKey(passphrase, channelId) {
 
 // ── Nostr publish helpers ────────────────────────────────
 
-async function publishChannelCreation(ch) {
-  if (!window.CipherNostr) return null;
-  const content = JSON.stringify({
-    name:    ch.name,
-    about:   ch.description,
-    picture: '',
-    ciphernet: {
-      type:       ch.type,
-      ownerFp:    ch.ownerFp,
-      ownerPub:   ch.ownerPub,
-      passphrase: ch.passphrase,
-      admins:     ch.admins,
-      banned:     ch.banned,
-      archived:   false,
-      version:    2,
-    },
-  });
-  // kind 40 — channel creation
-  return window.CipherNostr.publishRaw(40, content, []);
-}
-
-async function publishChannelUpdate(ch) {
-  if (!window.CipherNostr || !ch.nostrId) return;
-  const content = JSON.stringify({
-    name:    ch.name,
-    about:   ch.description,
-    picture: '',
-    ciphernet: {
-      type:       ch.type,
-      ownerFp:    ch.ownerFp,
-      ownerPub:   ch.ownerPub,
-      passphrase: ch.passphrase,
-      admins:     ch.admins,
-      banned:     ch.banned,
-      archived:   ch.archived,
-      version:    2,
-    },
-  });
-  // kind 41 — channel metadata update
-  return window.CipherNostr.publishRaw(41, content, [['e', ch.nostrId]]);
-}
+// publishChannelCreation/Update replaced by Channels.publishToNostr
 
 function publishAdminEvent(channelId, event) {
   // Store locally
@@ -638,6 +598,43 @@ async function handleIncomingNostrMessage(channelId, event) {
   // Pass to app.js handler
   if (window._channelNostrHandler) window._channelNostrHandler(channelId, event);
 }
+
+// ── Public Nostr publish method ─────────────────────────
+
+Channels.publishToNostr = async function(ch) {
+  if (!window.CipherNostr || !window.CipherNostr.isReady()) return null;
+  const content = JSON.stringify({
+    name:    ch.name,
+    about:   ch.description,
+    picture: '',
+    ciphernet: {
+      type:       ch.type,
+      ownerFp:    ch.ownerFp,
+      ownerPub:   ch.ownerPub,
+      passphrase: ch.passphrase,
+      admins:     ch.admins,
+      banned:     ch.banned,
+      archived:   ch.archived || false,
+      version:    2,
+    },
+  });
+  // kind 40 — channel creation. The returned event ID becomes the canonical channel ID.
+  const nostrId = await window.CipherNostr.publishRaw(40, content, []);
+  if (nostrId && nostrId !== ch.nostrId) {
+    ch.nostrId = nostrId;
+    channelState.channels[ch.id] = ch;
+    saveChannels();
+    // Subscribe to messages on this channel using the Nostr event ID
+    if (window.subscribeNostrOneChannel) window.subscribeNostrOneChannel(ch);
+  }
+  return nostrId;
+};
+
+// Also expose subscribeNostrOneChannel so app.js can call it
+// (set by app.js after load — channels.js loads before app.js)
+Channels.subscribeNew = function(ch) {
+  if (window.subscribeNostrOneChannel) window.subscribeNostrOneChannel(ch);
+};
 
 // Expose globally
 window.CipherChannels = Channels;

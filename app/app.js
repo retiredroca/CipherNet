@@ -1866,31 +1866,35 @@ document.addEventListener('DOMContentLoaded', initPGP);
 // ═══════════════════════════════════════════════════════
 // NOSTR INTEGRATION
 // ═══════════════════════════════════════════════════════
+//
+// Channel ID strategy:
+//   When a channel is created and Nostr is enabled, a kind 40 event is
+//   published. The Nostr event ID becomes the canonical channel ID stored
+//   in channels.js. Other users subscribe to kind 40 events to discover
+//   channels, then subscribe to kind 42 events tagged with that event ID
+//   to receive messages. This is the correct NIP-28 flow.
+//
+//   If Nostr is not enabled at creation time, channels stay local-only
+//   until the owner enables Nostr and re-announces via kind 40.
+// ═══════════════════════════════════════════════════════
 
 const nostrEnabled = { value: false };
-const nostrSubs    = {};  // channel/dm → subId
+const nostrSubs    = {};  // key → subId
 
 // ── Status UI ────────────────────────────────────────────
 
 function updateNostrStatusBar() {
-  const bar    = $('nostr-status-bar');
-  const dot    = $('nostr-dot');
-  const label  = $('nostr-label');
-  const count  = $('nostr-relay-count');
+  const bar   = $('nostr-status-bar');
+  const dot   = $('nostr-dot');
+  const count = $('nostr-relay-count');
   if (!bar) return;
-
-  if (!nostrEnabled.value) {
-    bar.classList.add('hidden'); return;
-  }
+  if (!nostrEnabled.value) { bar.classList.add('hidden'); return; }
   bar.classList.remove('hidden');
-
   const status = window.CipherNostr ? window.CipherNostr.getStatus() : {};
   const total  = Object.keys(status).length;
   const online = Object.values(status).filter(s => s === 'connected').length;
-
   count.textContent = online + '/' + total;
-  if (online === 0) { dot.className = 'nostr-dot offline'; label.textContent = 'NOSTR'; }
-  else              { dot.className = 'nostr-dot online';  label.textContent = 'NOSTR'; }
+  dot.className = online > 0 ? 'nostr-dot online' : 'nostr-dot offline';
 }
 
 // ── Relay modal ──────────────────────────────────────────
@@ -1908,14 +1912,13 @@ function renderRelayList() {
     const dot = document.createElement('span');
     dot.className = 'nostr-relay-dot ' + st;
     const lbl = document.createElement('span');
-    lbl.className = 'nostr-relay-url'; lbl.textContent = url;
+    lbl.className = 'nostr-relay-url';
+    lbl.textContent = url;
     lbl.title = st;
     const rm = document.createElement('button');
-    rm.className = 'btn-tiny danger'; rm.textContent = 'REMOVE';
-    rm.addEventListener('click', () => {
-      window.CipherNostr.removeRelay(url);
-      renderRelayList();
-    });
+    rm.className = 'btn-tiny danger';
+    rm.textContent = 'REMOVE';
+    rm.addEventListener('click', () => { window.CipherNostr.removeRelay(url); renderRelayList(); });
     row.appendChild(dot); row.appendChild(lbl); row.appendChild(rm);
     list.appendChild(row);
   });
@@ -1936,11 +1939,8 @@ async function enableNostr() {
   btn.textContent = 'CONNECTING...'; btn.disabled = true;
 
   const ok = await window.CipherNostr.init(
-    onNostrMessage,
-    (url, status) => {
-      updateNostrStatusBar();
-      renderRelayList();
-    }
+    null,
+    () => { updateNostrStatusBar(); renderRelayList(); }
   );
 
   nostrEnabled.value = ok;
@@ -1949,8 +1949,16 @@ async function enableNostr() {
   btn.classList.toggle('active', ok);
 
   if (ok) {
-    subscribeNostrChannels();
+    // 1. Register our Nostr pubkey on our identity record
+    registerNostrPubkey();
+    // 2. Subscribe to incoming DMs
     subscribeNostrDMs();
+    // 3. Subscribe to all joined channels by their Nostr event ID
+    subscribeNostrJoinedChannels();
+    // 4. Subscribe to public channel discovery (kind 40)
+    subscribeChannelDiscovery();
+    // 5. Re-announce any channels we own that have no nostrId yet
+    announceUnpublishedChannels();
     updateNostrStatusBar();
     toast('Nostr connected — syncing messages');
   } else {
@@ -1960,8 +1968,9 @@ async function enableNostr() {
 
 function disableNostr() {
   nostrEnabled.value = false;
-  for (const subId of Object.values(nostrSubs))
-    window.CipherNostr.unsubscribe(subId);
+  for (const subId of Object.values(nostrSubs)) {
+    try { window.CipherNostr.unsubscribe(subId); } catch {}
+  }
   Object.keys(nostrSubs).forEach(k => delete nostrSubs[k]);
   const btn = $('btn-nostr-toggle');
   btn.textContent = 'NOSTR: OFF';
@@ -1969,122 +1978,171 @@ function disableNostr() {
   updateNostrStatusBar();
 }
 
-// ── Subscribe to channels and DMs ────────────────────────
+// ── Channel discovery (kind 40) ──────────────────────────
 
-async function subscribeNostrChannels() {
-  for (const ch of ['general', 'random', 'tech']) {
-    if (nostrSubs[ch]) window.CipherNostr.unsubscribe(nostrSubs[ch]);
-    nostrSubs[ch] = await window.CipherNostr.subscribeChannel(ch, (event, relayUrl) => {
-      onNostrChannelEvent(ch, event);
-    });
+function subscribeChannelDiscovery() {
+  if (nostrSubs.discovery) window.CipherNostr.unsubscribe(nostrSubs.discovery);
+  nostrSubs.discovery = window.CipherNostr.subscribeRaw(
+    { kinds: [40], limit: 100 },
+    async (event) => {
+      try {
+        const meta = JSON.parse(event.content);
+        if (!meta.ciphernet) return; // not a CIPHER//NET channel
+        // The Nostr event ID IS the channel ID
+        const channelId = event.id;
+        const existing  = window.CipherChannels && window.CipherChannels.get(channelId);
+        if (existing) return; // already known
+        // Import into CipherChannels
+        if (window.CipherChannels) {
+          await window.CipherChannels.importFromNostr(event);
+          renderBrowseChannels();
+          console.log('[Nostr] Discovered channel:', meta.name, channelId.slice(0,12));
+        }
+      } catch { /* invalid event */ }
+    }
+  );
+}
+
+// ── Announce channels we own that aren't yet on Nostr ────
+
+async function announceUnpublishedChannels() {
+  if (!window.CipherChannels || !state.me) return;
+  const myChannels = window.CipherChannels.getAll().filter(
+    ch => ch.ownerFp === state.me.fingerprint && !ch.nostrId && ch.type === 'public'
+  );
+  for (const ch of myChannels) {
+    try {
+      await window.CipherChannels.publishToNostr(ch);
+      console.log('[Nostr] Announced channel:', ch.name);
+    } catch (e) {
+      console.warn('[Nostr] Failed to announce channel:', ch.name, e.message);
+    }
   }
 }
 
-function subscribeNostrDMs() {
-  if (nostrSubs.dms) window.CipherNostr.unsubscribe(nostrSubs.dms);
-  nostrSubs.dms = window.CipherNostr.subscribeDMs(async (event, relayUrl) => {
-    try {
-      const { payload, senderPubKey, ts } = await window.CipherNostr.unwrapDM(event);
-      onNostrDMEvent(payload, senderPubKey, ts);
-    } catch (e) {
-      console.warn('[Nostr] DM unwrap failed:', e.message);
-    }
+// ── Subscribe to messages in all joined channels ─────────
+
+function subscribeNostrJoinedChannels() {
+  if (!window.CipherChannels) return;
+  const joined = window.CipherChannels.getJoined();
+  joined.forEach(ch => {
+    // Use the Nostr event ID as channel ID — this is the NIP-28 root event
+    const nostrId = ch.nostrId || ch.id;
+    const subKey  = 'ch_' + ch.id;
+    if (nostrSubs[subKey]) return; // already subscribed
+    nostrSubs[subKey] = window.CipherNostr.subscribeRaw(
+      { kinds: [42], '#e': [nostrId], limit: 50 },
+      (event) => onNostrChannelMessage(ch.id, event)
+    );
+    console.log('[Nostr] Subscribed to channel:', ch.name, nostrId.slice(0,12));
   });
 }
 
-// ── Handle incoming Nostr events ─────────────────────────
+// Also subscribe when a new channel is joined — exposed to window for channels.js
+window.subscribeNostrOneChannel = function(ch) { subscribeNostrOneChannel(ch); };
+function subscribeNostrOneChannel(ch) {
+  if (!nostrEnabled.value || !window.CipherNostr || !window.CipherNostr.isReady()) return;
+  const nostrId = ch.nostrId || ch.id;
+  const subKey  = 'ch_' + ch.id;
+  if (nostrSubs[subKey]) return;
+  nostrSubs[subKey] = window.CipherNostr.subscribeRaw(
+    { kinds: [42], '#e': [nostrId], limit: 50 },
+    (event) => onNostrChannelMessage(ch.id, event)
+  );
+}
 
-async function onNostrChannelEvent(channel, event) {
-  // event.content is the CIPHER//NET ciphertext envelope
-  const ciphertext = event.content;
-  const ts         = event.created_at * 1000;
-  const authorHint = event.pubkey.slice(0, 6);
+// ── Incoming channel message ─────────────────────────────
 
-  // Deduplicate by Nostr event ID
+async function onNostrChannelMessage(channelId, event) {
   const seenKey = 'cipher_nostr_seen_' + event.id;
   if (sessionStorage.getItem(seenKey)) return;
   sessionStorage.setItem(seenKey, '1');
 
-  // Persist to localStorage in the same format as local messages
-  persist('cipher_msgs_' + channel, { ciphertext, ts, authorHint, nostrId: event.id });
+  const ciphertext = event.content;
+  const ts         = event.created_at * 1000;
+  const authorHint = event.pubkey.slice(0, 6);
+  const ch         = window.CipherChannels && window.CipherChannels.get(channelId);
+  if (!ch) return;
 
-  // If this channel is currently active, render it
-  if (state.view === 'channel' && state.channel === channel && state.channelKeys[channel]) {
+  // Persist
+  const msgKey = window.CipherChannels.msgKey(channelId);
+  persist(msgKey, { ciphertext, ts, authorHint, nostrId: event.id });
+
+  // Render if this channel is active and we have the key
+  if (state.view === 'channel' && state.channel === channelId) {
+    const aesKey = window.CipherChannels.getActiveKey(channelId);
+    if (!aesKey) return;
     try {
-      const env      = JSON.parse(await aesDecrypt(ciphertext, state.channelKeys[channel]));
+      const env      = JSON.parse(await aesDecrypt(ciphertext, aesKey));
       const verified = await verifyData(env.sigPayload, env.sig, env.publicKeyPem, env.algo);
-      renderMessage({ text: env.text, author: env.handle, fingerprint: env.author, ts, verified, enc: 'AES-256-GCM·NOSTR' });
+      renderMessage({ text: env.text, author: env.handle, fingerprint: env.author,
+                      ts, verified, enc: 'AES-256-GCM·NOSTR' });
       scrollToBottom();
-    } catch { /* wrong key or not for us */ }
+    } catch { /* wrong key or encrypted for others */ }
   }
 }
 
-async function onNostrDMEvent(payload, senderNostrPub, ts) {
-  // payload is CIPHER//NET DM ciphertext — we need to find which peer sent it
-  // Match by nostr pubkey stored on user records
-  const users = getStoredUsers();
-  let peerFp  = null;
-  for (const [fp, u] of Object.entries(users)) {
-    if (u.nostrPub === senderNostrPub) { peerFp = fp; break; }
-  }
-  if (!peerFp) {
-    console.log('[Nostr] DM from unknown Nostr pubkey:', senderNostrPub.slice(0,16));
-    return;
-  }
+// ── Incoming DM ──────────────────────────────────────────
 
-  const seenKey = 'cipher_nostr_dm_seen_' + ts + '_' + senderNostrPub.slice(0,8);
-  if (sessionStorage.getItem(seenKey)) return;
-  sessionStorage.setItem(seenKey, '1');
+function subscribeNostrDMs() {
+  if (!window.CipherNostr) return;
+  if (nostrSubs.dms) window.CipherNostr.unsubscribe(nostrSubs.dms);
+  nostrSubs.dms = window.CipherNostr.subscribeDMs(async (event) => {
+    try {
+      const { payload, senderPubKey, ts } = await window.CipherNostr.unwrapDM(event);
+      const users = getStoredUsers();
+      const peer  = Object.values(users).find(u => u.nostrPub === senderPubKey);
+      if (!peer) {
+        console.log('[Nostr] DM from unknown peer nostr pubkey:', senderPubKey.slice(0,12));
+        return;
+      }
+      const seenKey = 'cipher_nostr_dm_' + event.id;
+      if (sessionStorage.getItem(seenKey)) return;
+      sessionStorage.setItem(seenKey, '1');
 
-  persist(dmStorageKey(state.me.fingerprint, peerFp),
-    { ciphertext: payload, ts, authorHint: peerFp.slice(0, 6) });
+      persist(dmStorageKey(state.me.fingerprint, peer.fingerprint),
+        { ciphertext: payload, ts, authorHint: peer.fingerprint.slice(0,6) });
 
-  if (state.view === 'dm' && state.dmPeer && state.dmPeer.fingerprint === peerFp) {
-    const dmKey = state.dmKeys[peerFp];
-    if (dmKey) {
-      try {
-        const env      = JSON.parse(await aesDecrypt(payload, dmKey));
-        const verified = await verifyData(env.sigPayload, env.sig, env.publicKeyPem, env.algo);
-        renderMessage({ text: env.text, author: env.handle, fingerprint: env.from, ts, verified, enc: 'NOSTR·NIP44+AES', dm: true });
-        scrollToBottom();
-      } catch { /* can't decrypt */ }
-    }
-  }
+      if (state.view === 'dm' && state.dmPeer && state.dmPeer.fingerprint === peer.fingerprint) {
+        const dmKey = state.dmKeys[peer.fingerprint];
+        if (dmKey) {
+          try {
+            const env      = JSON.parse(await aesDecrypt(payload, dmKey));
+            const verified = await verifyData(env.sigPayload, env.sig, env.publicKeyPem, env.algo);
+            renderMessage({ text: env.text, author: env.handle, fingerprint: env.from,
+                            ts, verified, enc: 'NOSTR·NIP44+AES', dm: true });
+            scrollToBottom();
+          } catch {}
+        }
+      }
+    } catch (e) { console.warn('[Nostr] DM unwrap failed:', e.message); }
+  });
 }
 
-function onNostrMessage(event, payload) {
-  // Generic handler — specific handling done in channel/DM callbacks above
-}
+// ── Send hooks ───────────────────────────────────────────
 
-// ── Hook into send functions ─────────────────────────────
-
-const _origSendChannelMessage = sendChannelMessage;
-window._nostrHookChannel = async function(channel, ciphertext) {
+window._nostrHookChannel = async function(channelId, ciphertext) {
   if (!nostrEnabled.value || !window.CipherNostr || !window.CipherNostr.isReady()) return;
+  const ch = window.CipherChannels && window.CipherChannels.get(channelId);
+  if (!ch) return;
+  // Use the channel's Nostr event ID as the root tag (NIP-28)
+  const rootId = ch.nostrId || ch.id;
   try {
-    await window.CipherNostr.publishChannelMessage(channel, ciphertext);
-  } catch (e) {
-    console.warn('[Nostr] Channel publish failed:', e.message);
-  }
+    await window.CipherNostr.publishRaw(42, ciphertext, [['e', rootId, '', 'root']]);
+  } catch (e) { console.warn('[Nostr] Channel publish failed:', e.message); }
 };
 
-const _origSendDM = sendDM;
 window._nostrHookDM = async function(peerFp, ciphertext) {
   if (!nostrEnabled.value || !window.CipherNostr || !window.CipherNostr.isReady()) return;
   const users = getStoredUsers();
   const peer  = users[peerFp];
-  if (!peer || !peer.nostrPub) {
-    console.log('[Nostr] Peer has no Nostr pubkey — DM not sent via Nostr');
-    return;
-  }
+  if (!peer || !peer.nostrPub) return;
   try {
     await window.CipherNostr.publishDM(peer.nostrPub, ciphertext);
-  } catch (e) {
-    console.warn('[Nostr] DM publish failed:', e.message);
-  }
+  } catch (e) { console.warn('[Nostr] DM publish failed:', e.message); }
 };
 
-// ── Store our Nostr pubkey on our user record ────────────
+// ── Register our Nostr pubkey on our identity ────────────
 
 function registerNostrPubkey() {
   if (!window.CipherNostr || !state.me) return;
@@ -2097,44 +2155,32 @@ function registerNostrPubkey() {
   }
 }
 
-// ── Wire up Nostr UI in DOMContentLoaded ────────────────
+// ── Wire up Nostr UI ─────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', function initNostrUI() {
-  const toggleBtn = $('btn-nostr-toggle');
-  if (toggleBtn) toggleBtn.addEventListener('click', () => {
-    if (nostrEnabled.value) disableNostr();
-    else enableNostr().then(() => registerNostrPubkey());
+  $('btn-nostr-toggle') && $('btn-nostr-toggle').addEventListener('click', () => {
+    nostrEnabled.value ? disableNostr() : enableNostr();
   });
-
-  const relaysBtn = $('btn-nostr-relays');
-  if (relaysBtn) relaysBtn.addEventListener('click', openNostrModal);
-
-  const closeBtn = $('nostr-modal-close');
-  if (closeBtn) closeBtn.addEventListener('click', () => $('nostr-modal').classList.add('hidden'));
-
+  $('btn-nostr-relays') && $('btn-nostr-relays').addEventListener('click', openNostrModal);
+  $('nostr-modal-close') && $('nostr-modal-close').addEventListener('click', () =>
+    $('nostr-modal').classList.add('hidden'));
   $('nostr-modal') && $('nostr-modal').addEventListener('click', e => {
     if (e.target === $('nostr-modal')) $('nostr-modal').classList.add('hidden');
   });
-
-  const addBtn = $('nostr-relay-add');
-  if (addBtn) addBtn.addEventListener('click', () => {
+  $('nostr-relay-add') && $('nostr-relay-add').addEventListener('click', () => {
     const input = $('nostr-relay-input');
     const url   = input && input.value.trim();
-    if (!url) return;
-    if (!url.startsWith('ws://') && !url.startsWith('wss://'))
-      { toast('Relay URL must start with ws:// or wss://'); return; }
+    if (!url || (!url.startsWith('ws://') && !url.startsWith('wss://'))) {
+      toast('Relay URL must start with ws:// or wss://'); return;
+    }
     window.CipherNostr && window.CipherNostr.addRelay(url);
-    if (input) input.value = '';
+    input.value = '';
     renderRelayList();
     toast('Relay added: ' + url);
   });
-
-  const reconnBtn = $('nostr-reconnect-btn');
-  if (reconnBtn) reconnBtn.addEventListener('click', () => {
+  $('nostr-reconnect-btn') && $('nostr-reconnect-btn').addEventListener('click', () => {
     if (window.CipherNostr) {
-      for (const url of window.CipherNostr.getRelayList()) {
-        window.CipherNostr.addRelay(url);
-      }
+      window.CipherNostr.getRelayList().forEach(url => window.CipherNostr.addRelay(url));
       toast('Reconnecting all relays...');
       setTimeout(renderRelayList, 1000);
     }
