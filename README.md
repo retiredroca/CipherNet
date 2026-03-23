@@ -2,7 +2,7 @@
 
 A self-hosted, single-page end-to-end encrypted chat application. No accounts, no servers, no tracking — just cryptographic keypairs, signed messages, and post-quantum encryption.
 
-Built to run on [OnionShare](https://onionshare.org/), installable as a PWA, and deployable to any web server.
+Built to run on [OnionShare](https://onionshare.org/), installable as a PWA, and deployable to any static web host.
 
 ---
 
@@ -247,4 +247,8 @@ All message content is stored as ciphertext. Public keys and fingerprints are in
 
 ---
 
+## License
 
+MIT License — see [LICENSE](LICENSE).
+
+Free to use, modify, and distribute for any purpose. Attribution appreciated but not required.
