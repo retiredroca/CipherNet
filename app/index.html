@@ -535,62 +535,52 @@
 </div>
 <div id="screenshot-warn">// SCREENSHOT DETECTED — CONTENT MAY BE CAPTURED</div>
 
-<!-- noble-post-quantum via esm.sh (bundles all deps into one request) -->
-<script type="module">
-  async function tryLoad(url, label) {
-    const m = await import(url);
-    // esm.sh bundles sub-paths — export names vary, try all known patterns
-    const dsa = m.ml_dsa65 || (m.default && m.default.ml_dsa65) || null;
-    const kem = m.ml_kem768 || (m.default && m.default.ml_kem768) || null;
-    if (!dsa || !kem) throw new Error('exports not found in ' + label + ': ' + Object.keys(m).join(', '));
-    window.ml_dsa65  = dsa;
-    window.ml_kem768 = kem;
+<!-- noble-post-quantum: loaded as classic scripts (CSP safe, works on OnionShare)
+     Place any of these files next to index.html:
+       noble-post-quantum.js  — single bundle
+       noble-pq.js            — alternate name
+       ml-dsa.js + ml-kem.js  — separate files from npm package
+     The script below detects which loaded and sets window._pqLoaded.
+-->
+<script src="noble-post-quantum.js" onerror="window._pqNPQ=false" onload="window._pqNPQ=true"></script>
+<script src="noble-pq.js" onerror="void(0)" onload="window._pqNPQalt=true"></script>
+<script src="ml-dsa.js"  onerror="void(0)" onload="window._pqDSA=true"></script>
+<script src="ml-kem.js"  onerror="void(0)" onload="window._pqKEM=true"></script>
+<script src="noble-pq-wrap.js" onerror="void(0)"></script>
+<script>
+// Detect what loaded and wire up globals
+(function() {
+  // Case 1: single bundle exposed ml_dsa65 and ml_kem768 directly
+  if (typeof ml_dsa65 !== 'undefined' && typeof ml_kem768 !== 'undefined') {
+    window.ml_dsa65 = ml_dsa65; window.ml_kem768 = ml_kem768;
     window._pqLoaded = true;
-    console.log('[PQ] ⚛ Ready from', label, '| keys:', Object.keys(m).join(', '));
+    console.log('[PQ] ⚛ Ready from single bundle (direct globals)');
+    return;
   }
-
-  const attempts = [
-    // esm.sh bundles everything including deps — most reliable for browser use
-    ['https://esm.sh/@noble/post-quantum@0.4.1/ml-dsa.js', 'esm.sh ml-dsa'],
-    ['https://esm.sh/@noble/post-quantum@0.4.1/ml-kem.js',  'esm.sh ml-kem'],
-  ];
-
-  // Try loading both sub-modules from esm.sh simultaneously
-  try {
-    const [dsaMod, kemMod] = await Promise.all([
-      import('https://esm.sh/@noble/post-quantum@0.4.1/ml-dsa.js'),
-      import('https://esm.sh/@noble/post-quantum@0.4.1/ml-kem.js'),
-    ]);
-    const dsa = dsaMod.ml_dsa65 || (dsaMod.default && dsaMod.default.ml_dsa65);
-    const kem = kemMod.ml_kem768 || (kemMod.default && kemMod.default.ml_kem768);
-    if (!dsa || !kem) throw new Error('exports missing. ml-dsa keys: ' + Object.keys(dsaMod).join(',') + ' ml-kem keys: ' + Object.keys(kemMod).join(','));
-    window.ml_dsa65  = dsa;
-    window.ml_kem768 = kem;
-    window._pqLoaded = true;
-    console.log('[PQ] ⚛ Loaded from esm.sh | ml_dsa65:', typeof dsa, '| ml_kem768:', typeof kem);
-  } catch(e) {
-    console.warn('[PQ] esm.sh failed:', e.message, '— trying local file');
-    // Local file fallback — use absolute path from current page location
-    const base = location.href.substring(0, location.href.lastIndexOf('/') + 1);
-    const localNames = ['noble-post-quantum.js', 'noble-pq.js'];
-    let loaded = false;
-    for (const name of localNames) {
-      try {
-        const m = await import(base + name);
-        const dsa = m.ml_dsa65 || (m.default && m.default.ml_dsa65);
-        const kem = m.ml_kem768 || (m.default && m.default.ml_kem768);
-        if (dsa && kem) {
-          window.ml_dsa65 = dsa; window.ml_kem768 = kem; window._pqLoaded = true;
-          console.log('[PQ] ⚛ Loaded from local file:', name);
-          loaded = true; break;
-        }
-      } catch(le) { console.warn('[PQ] local', name, 'failed:', le.message); }
-    }
-    if (!loaded) {
-      window._pqError = 'esm.sh: ' + e.message;
-      console.error('[PQ] PQ unavailable. Select ECDSA P-256 as algorithm.');
+  // Case 2: single bundle wrapped in a named export object
+  var candidates = ['noblePostQuantum','noble_post_quantum','noblePQ','noblePostQuantum'];
+  for (var i = 0; i < candidates.length; i++) {
+    var lib = window[candidates[i]];
+    if (lib && lib.ml_dsa65 && lib.ml_kem768) {
+      window.ml_dsa65 = lib.ml_dsa65; window.ml_kem768 = lib.ml_kem768;
+      window._pqLoaded = true;
+      console.log('[PQ] ⚛ Ready from', candidates[i]);
+      return;
     }
   }
+  // Case 3: separate ml-dsa.js + ml-kem.js each set their own global
+  // ml-dsa.js typically sets ml_dsa, mlDsa, or similar
+  var dsaLib = window.ml_dsa || window.mlDsa || window.MlDsa || null;
+  var kemLib = window.ml_kem || window.mlKem || window.MlKem || null;
+  if (dsaLib && dsaLib.ml_dsa65 && kemLib && kemLib.ml_kem768) {
+    window.ml_dsa65 = dsaLib.ml_dsa65; window.ml_kem768 = kemLib.ml_kem768;
+    window._pqLoaded = true;
+    console.log('[PQ] ⚛ Ready from separate ml-dsa.js + ml-kem.js');
+    return;
+  }
+  // Not loaded — app will fall back to ECDSA P-256
+  console.warn('[PQ] noble-post-quantum not found. Place noble-post-quantum.js (or ml-dsa.js+ml-kem.js) next to index.html. Using ECDSA P-256.');
+})();
 </script>
 <script src="openpgp.min.js"></script>
 <script src="channels.js"></script>

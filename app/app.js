@@ -503,47 +503,47 @@ async function generateKeys() {
   const username = $('reg-username').value.trim();
   if (!/^[a-zA-Z0-9_]{3,32}$/.test(username)) { toast('Handle: 3-32 chars, letters/numbers/underscores'); return; }
 
-  const algo = $('reg-algo').value;
-  const btn  = $('btn-gen');
+  const btn = $('btn-gen');
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>GENERATING...';
   $('key-gen-area').classList.remove('hidden');
   animateProgress(0, 35, 500);
 
+  // Read algo — may be downgraded to ECDSA-P256 if PQ lib is unavailable
+  let algo = $('reg-algo').value;
+  let usePQ = (algo === 'ML-DSA-65');
+
+  // If PQ selected, wait up to 3s for the esm.sh module to finish loading
+  if (usePQ) {
+    btn.innerHTML = '<span class="spinner"></span>LOADING PQ LIB...';
+    const pqReady = await new Promise(resolve => {
+      if (window._pqLoaded) { resolve(true); return; }
+      let waited = 0;
+      const interval = setInterval(() => {
+        waited += 100;
+        if (window._pqLoaded)    { clearInterval(interval); resolve(true); }
+        else if (waited >= 3000) { clearInterval(interval); resolve(false); }
+      }, 100);
+    });
+    if (!pqReady) {
+      // Fall back silently to ECDSA P-256
+      usePQ = false;
+      algo   = 'ECDSA-P256';
+      const sel = $('reg-algo');
+      if (sel) sel.value = 'ECDSA-P256';
+      toast('PQ library not available — using ECDSA P-256');
+    }
+    btn.innerHTML = '<span class="spinner"></span>GENERATING...';
+  }
+
   let keys, privPem, pubPem, dhPubPem;
-  const isPQ = (algo === 'ML-DSA-65');
 
   try {
-    if (isPQ) {
-      // Wait up to 3s for the async ES module import to complete
-      btn.innerHTML = '<span class="spinner"></span>LOADING PQ LIB...';
-      const pqReady = await new Promise(resolve => {
-        if (window._pqLoaded) { resolve(true); return; }
-        let waited = 0;
-        const interval = setInterval(() => {
-          waited += 100;
-          if (window._pqLoaded) { clearInterval(interval); resolve(true); }
-          else if (waited >= 3000) { clearInterval(interval); resolve(false); }
-        }, 100);
-      });
-      if (!pqReady) {
-        // Auto-switch to ECDSA P-256 and continue
-        const algoSel = $('reg-algo');
-        if (algoSel) { algoSel.value = 'ECDSA-P256'; algo = 'ECDSA-P256'; }
-        toast('PQ library not found — using ECDSA P-256');
-        isPQ = false;
-      } else {
-      } // end if pqReady
-      btn.innerHTML = '<span class="spinner"></span>GENERATING...';
-    }
-
-    if (isPQ) {
-      // Show PQ note
+    if (usePQ) {
       const note = $('pq-key-note');
       if (note) note.classList.remove('hidden');
 
       keys = await generateMLDSAKeypair();
       animateProgress(35, 65, 400);
-      // ML-KEM-768 for DMs
       const kemKeys = await generateMLKEMKeypair();
       animateProgress(65, 90, 300);
 
@@ -552,7 +552,7 @@ async function generateKeys() {
       dhPubPem = bytesToB64(kemKeys.publicKey);
 
       state.generatedCryptoKeys = keys;
-      state.generatedDHKeys     = kemKeys;   // reuse slot — stores ML-KEM keypair
+      state.generatedDHKeys     = kemKeys;
       state.generatedAlgo       = { name: 'ML-DSA-65' };
     } else {
       if      (algo === 'ECDSA-P256') keys = await generateECDSA('P-256');
@@ -579,9 +579,9 @@ async function generateKeys() {
 
   animateProgress(90, 100, 200);
 
-  state.generatedPrivPem   = privPem;
-  state.generatedPubPem    = pubPem;
-  state.generatedDHPubPem  = dhPubPem;
+  state.generatedPrivPem  = privPem;
+  state.generatedPubPem   = pubPem;
+  state.generatedDHPubPem = dhPubPem;
 
   $('priv-key-display').textContent = privPem;
   $('pub-key-display').textContent  = pubPem;

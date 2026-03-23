@@ -249,6 +249,6 @@ All message content is stored as ciphertext. Public keys and fingerprints are in
 
 ## License
 
-MIT License — see [LICENSE](LICENSE).
+GPL-3 License — see [LICENSE](LICENSE).
 
 Free to use, modify, and distribute for any purpose. Attribution appreciated but not required.

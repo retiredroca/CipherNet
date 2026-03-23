@@ -449,8 +449,6 @@ const Channels = {
     return generateInvite(channelId, actorFp, actorSigningKey, actorAlgo, passphrase);
   },
 
-  joinViaInvite,
-
   // ── Import channel from Nostr event ─────────────────────
 
   async importFromNostr(kind40Event) {
