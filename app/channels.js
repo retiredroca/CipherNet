@@ -126,6 +126,7 @@ async function verifyAdminEvent(event, pubKeyPem, algo) {
 // ── Invite tokens ────────────────────────────────────────
 
 async function generateInvite(channelId, inviterFp, inviterSigningKey, inviterAlgo, passphrase) {
+  const ch = channelState.channels[channelId];
   const token = {
     channelId,
     inviterFp,
@@ -133,6 +134,15 @@ async function generateInvite(channelId, inviterFp, inviterSigningKey, inviterAl
     expires:    Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 days
     nonce:      Array.from(crypto.getRandomValues(new Uint8Array(8)))
                   .map(b => b.toString(16).padStart(2,'0')).join(''),
+    // Include channel metadata so recipient can join without prior knowledge
+    channelMeta: ch ? {
+      name:        ch.name,
+      description: ch.description,
+      type:        ch.type,
+      ownerFp:     ch.ownerFp,
+      ownerPub:    ch.ownerPub,
+      created:     ch.created,
+    } : null,
   };
   const str = JSON.stringify(token);
   const sig  = await signData(str, inviterSigningKey, inviterAlgo);
@@ -287,10 +297,31 @@ const Channels = {
     // Verify invite signature
     const tokenStr = JSON.stringify(token);
     const valid    = await verifyData(tokenStr, sig, inviterPubKeyPem, inviterAlgo);
-    if (!valid) throw new Error('Invite signature invalid');
+    if (!valid) throw new Error('Invite signature invalid — token may be corrupted or forged');
 
-    const ch = channelState.channels[token.channelId];
-    if (!ch) throw new Error('Channel not found — make sure the channel creator is in your user registry');
+    // If channel not known locally, reconstruct it from the token metadata
+    if (!channelState.channels[token.channelId]) {
+      if (!token.channelMeta) {
+        throw new Error('Channel not found locally and invite token has no channel metadata. ' +
+          'Ask the owner to generate a new invite token.');
+      }
+      const meta = token.channelMeta;
+      channelState.channels[token.channelId] = {
+        id:          token.channelId,
+        name:        meta.name,
+        description: meta.description || '',
+        type:        meta.type || 'private',
+        ownerFp:     meta.ownerFp,
+        ownerPub:    meta.ownerPub || '',
+        created:     meta.created || Date.now(),
+        archived:    false,
+        passphrase:  !!token.passphrase,
+        admins:      [],
+        banned:      [],
+        nostrId:     null,
+      };
+      saveChannels();
+    }
 
     return this.join(token.channelId, token.passphrase);
   },

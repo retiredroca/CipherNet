@@ -2232,16 +2232,22 @@ function renderBrowseChannels() {
   const list = $('ch-browse-list');
   if (!list) return;
   list.innerHTML = '';
-  const all    = window.CipherChannels ? window.CipherChannels.getAll() : [];
-  const public_ = all.filter(c => c.type === 'public');
-  if (!public_.length) {
-    list.innerHTML = '<div class="ch-empty">No public channels discovered yet. Enable Nostr to find channels.</div>';
+  const all     = window.CipherChannels ? window.CipherChannels.getAll() : [];
+  // Show all known channels (public and private) that the user hasn't joined yet
+  // plus already joined ones so they can see all options
+  const joinedIds = new Set((window.CipherChannels ? window.CipherChannels.getJoined() : []).map(c => c.id));
+  const notJoined = all.filter(c => !joinedIds.has(c.id));
+  const joined    = all.filter(c =>  joinedIds.has(c.id));
+  const display   = [...notJoined, ...joined];
+
+  if (!display.length) {
+    list.innerHTML = '<div class="ch-empty">No channels known yet. Create one, or ask someone for an invite token.</div>';
     return;
   }
-  public_.forEach(ch => {
-    const joined = window.CipherChannels.getJoined().some(c => c.id === ch.id);
-    const role   = state.me ? window.CipherChannels.getRole(ch.id, state.me.fingerprint) : null;
-    list.appendChild(buildChannelRow(ch, role, false, joined));
+  display.forEach(ch => {
+    const isJoined = joinedIds.has(ch.id);
+    const role     = state.me ? window.CipherChannels.getRole(ch.id, state.me.fingerprint) : null;
+    list.appendChild(buildChannelRow(ch, role, false, isJoined));
   });
 }
 
@@ -2366,13 +2372,26 @@ async function joinViaInvite() {
   btn.textContent = 'JOINING...'; btn.disabled = true;
 
   try {
-    // Find inviter in user registry to verify signature
     const { token: t } = await parseInviteToken(token);
-    const users  = getStoredUsers();
+    const users   = getStoredUsers();
     const inviter = users[t.inviterFp];
-    if (!inviter) throw new Error('Inviter not found in your user registry. Import their public identity first.');
 
-    const ch = await window.CipherChannels.joinViaInvite(token, inviter.publicKeyPem, inviter.algo);
+    // If inviter is in our registry, verify signature properly.
+    // If not, use channel metadata from the token — signature still verified
+    // against ownerPub embedded in channelMeta.
+    let pubKeyPem, algo;
+    if (inviter) {
+      pubKeyPem = inviter.publicKeyPem;
+      algo      = inviter.algo;
+    } else if (t.channelMeta && t.channelMeta.ownerPub) {
+      // Use the owner's public key embedded in the invite token itself
+      pubKeyPem = t.channelMeta.ownerPub;
+      algo      = null; // verifyData will detect algo from key type
+    } else {
+      throw new Error('Inviter not in your user registry and token has no embedded public key. Ask the owner to share their public identity first.');
+    }
+
+    const ch = await window.CipherChannels.joinViaInvite(token, pubKeyPem, algo);
     $('ch-join-invite').value = '';
     renderChannelList();
     toast('Joined #' + ch.name);

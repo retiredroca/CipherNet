@@ -5,6 +5,16 @@ description = "CIPHER//NET — end-to-end encrypted decentralized chat"
 authors = ["you"]
 edition = "2021"
 
+[package.metadata.bundle]
+name = "CIPHERNET"
+identifier = "net.ciphernet.chat"
+icon = [
+  "icons/32x32.png",
+  "icons/128x128.png",
+  "icons/128x128@2x.png",
+  "icons/icon.ico",
+]
+
 [lib]
 name = "ciphernet_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
