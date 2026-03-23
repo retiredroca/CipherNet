@@ -284,21 +284,13 @@ function getPQLib() {
   const dsa = window.ml_dsa65  || null;
   const kem = window.ml_kem768 || null;
   if (dsa && kem) return { ml_dsa65: dsa, ml_kem768: kem };
+  return null; // not loaded — callers check for null
+}
 
-  // Build a helpful error message based on what we know
-  let why = '';
-  if (window._pqError) {
-    why = ' Load error: ' + window._pqError + '.';
-  } else if (!window._pqLoaded) {
-    why = ' The file may be missing, misnamed, or blocked by the server.';
-  }
-
-  throw new Error(
-    'Post-quantum library not available.' + why + ' ' +
-    'Check the browser console for [PQ] messages. ' +
-    'Make sure noble-post-quantum.js is in the same folder as index.html. ' +
-    'Alternatively, select ECDSA P-256, P-384, or RSA-PSS.'
-  );
+function requirePQLib() {
+  const lib = getPQLib();
+  if (lib) return lib;
+  throw new Error('PQ library not loaded. Run download-noble-pq.sh then copy noble-post-quantum.js here. Or select ECDSA P-256.');
 }
 
 function b64ToBytes(b64) {
@@ -312,14 +304,14 @@ function bytesToB64(bytes) {
 // Generate ML-DSA-65 signing keypair.
 // Returns { secretKey: Uint8Array, publicKey: Uint8Array }
 async function generateMLDSAKeypair() {
-  const { ml_dsa65 } = getPQLib();
+  const { ml_dsa65 } = requirePQLib();
   const seed = crypto.getRandomValues(new Uint8Array(32));
   return ml_dsa65.keygen(seed);
 }
 
 // Sign data with ML-DSA-65 secret key.
 async function signDataPQ(text, secretKey) {
-  const { ml_dsa65 } = getPQLib();
+  const { ml_dsa65 } = requirePQLib();
   const msg = new TextEncoder().encode(text);
   // noble v0.4.1 API: sign(secretKey, msg)
   const sig = ml_dsa65.sign(secretKey, msg);
@@ -329,7 +321,7 @@ async function signDataPQ(text, secretKey) {
 // Verify ML-DSA-65 signature.
 async function verifyDataPQ(text, sigB64, publicKeyB64) {
   try {
-    const { ml_dsa65 } = getPQLib();
+    const { ml_dsa65 } = requirePQLib();
     const msg = new TextEncoder().encode(text);
     const sig = b64ToBytes(sigB64);
     const pub = b64ToBytes(publicKeyB64);
@@ -341,7 +333,7 @@ async function verifyDataPQ(text, sigB64, publicKeyB64) {
 // Generate ML-KEM-768 keypair for DM key encapsulation.
 // Returns { publicKey: Uint8Array, secretKey: Uint8Array }
 async function generateMLKEMKeypair() {
-  const { ml_kem768 } = getPQLib();
+  const { ml_kem768 } = requirePQLib();
   const seed = crypto.getRandomValues(new Uint8Array(64));
   return ml_kem768.keygen(seed);
 }
@@ -350,7 +342,7 @@ async function generateMLKEMKeypair() {
 // produce { ciphertext: Uint8Array, sharedSecret: Uint8Array }
 // sharedSecret is used to derive AES-256-GCM key.
 async function kemEncapsulate(recipientPubKeyB64) {
-  const { ml_kem768 } = getPQLib();
+  const { ml_kem768 } = requirePQLib();
   const pub = b64ToBytes(recipientPubKeyB64);
   return ml_kem768.encapsulate(pub);
 }
@@ -358,7 +350,7 @@ async function kemEncapsulate(recipientPubKeyB64) {
 // Decapsulate: given our ML-KEM secret key + ciphertext,
 // recover the sharedSecret.
 async function kemDecapsulate(ciphertextB64, secretKeyB64) {
-  const { ml_kem768 } = getPQLib();
+  const { ml_kem768 } = requirePQLib();
   const ct  = b64ToBytes(ciphertextB64);
   const sk  = b64ToBytes(secretKeyB64);
   return ml_kem768.decapsulate(ct, sk);
@@ -534,14 +526,17 @@ async function generateKeys() {
         }, 100);
       });
       if (!pqReady) {
-        const err = window._pqError
-          ? 'PQ load error: ' + window._pqError
-          : 'noble-post-quantum.js not found. Make sure the file is in the same folder as index.html and is committed to your repo. Select a classical algorithm to continue without PQ.';
-        toast(err);
-        btn.disabled = false; btn.innerHTML = 'GENERATE KEYPAIR'; return;
-      }
+        // Auto-switch to ECDSA P-256 and continue
+        const algoSel = $('reg-algo');
+        if (algoSel) { algoSel.value = 'ECDSA-P256'; algo = 'ECDSA-P256'; }
+        toast('PQ library not found — using ECDSA P-256');
+        isPQ = false;
+      } else {
+      } // end if pqReady
       btn.innerHTML = '<span class="spinner"></span>GENERATING...';
+    }
 
+    if (isPQ) {
       // Show PQ note
       const note = $('pq-key-note');
       if (note) note.classList.remove('hidden');
