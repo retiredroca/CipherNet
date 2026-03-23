@@ -70,6 +70,16 @@ function saveChannels() {
   localStorage.setItem(JOINED_KEY,   JSON.stringify(channelState.joined));
 }
 
+// Re-entrancy guard — prevents onUpdate from firing while already rendering
+let _onUpdateRunning = false;
+const _origOnUpdate = null;
+function fireOnUpdate() {
+  if (_onUpdateRunning || !channelState.onUpdate) return;
+  _onUpdateRunning = true;
+  try { channelState.onUpdate(); }
+  finally { _onUpdateRunning = false; }
+}
+
 function loadChannels() {
   try {
     channelState.channels = JSON.parse(localStorage.getItem(CHANNELS_KEY) || '{}');
@@ -266,7 +276,7 @@ const Channels = {
     // Subscribe to Nostr messages for this channel
     Channels.subscribeNew(ch);
 
-    if (channelState.onUpdate) channelState.onUpdate();
+    fireOnUpdate();
     return ch;
   },
 
@@ -286,7 +296,7 @@ const Channels = {
     }
 
     saveChannels();
-    if (channelState.onUpdate) channelState.onUpdate();
+    fireOnUpdate();
     return ch;
   },
 
@@ -332,7 +342,7 @@ const Channels = {
     channelState.joined = channelState.joined.filter(id => id !== channelId);
     clearChannelKey(channelId);
     saveChannels();
-    if (channelState.onUpdate) channelState.onUpdate();
+    fireOnUpdate();
   },
 
   // ── Update passphrase (owner/admin only) ────────────────
@@ -364,7 +374,7 @@ const Channels = {
       publishChannelUpdate(ch).catch(() => {});
 
     saveChannels();
-    if (channelState.onUpdate) channelState.onUpdate();
+    fireOnUpdate();
   },
 
   // ── Ban / unban (owner only) ────────────────────────────
@@ -386,7 +396,7 @@ const Channels = {
     publishAdminEvent(channelId, event);
 
     saveChannels();
-    if (channelState.onUpdate) channelState.onUpdate();
+    fireOnUpdate();
   },
 
   async unban(channelId, targetFp, actorFp, actorSigningKey, actorAlgo) {
@@ -404,7 +414,7 @@ const Channels = {
     publishAdminEvent(channelId, event);
 
     saveChannels();
-    if (channelState.onUpdate) channelState.onUpdate();
+    fireOnUpdate();
   },
 
   // ── Promote / demote admin (owner only) ─────────────────
@@ -424,7 +434,7 @@ const Channels = {
     publishAdminEvent(channelId, event);
 
     saveChannels();
-    if (channelState.onUpdate) channelState.onUpdate();
+    fireOnUpdate();
   },
 
   async demote(channelId, targetFp, actorFp, actorSigningKey, actorAlgo) {
@@ -441,7 +451,7 @@ const Channels = {
     publishAdminEvent(channelId, event);
 
     saveChannels();
-    if (channelState.onUpdate) channelState.onUpdate();
+    fireOnUpdate();
   },
 
   // ── Archive / delete (owner only) ───────────────────────
@@ -464,7 +474,7 @@ const Channels = {
       publishChannelUpdate(ch).catch(() => {});
 
     saveChannels();
-    if (channelState.onUpdate) channelState.onUpdate();
+    fireOnUpdate();
   },
 
   // ── Generate invite ──────────────────────────────────────
@@ -506,7 +516,7 @@ const Channels = {
       };
 
       saveChannels();
-      if (channelState.onUpdate) channelState.onUpdate();
+      fireOnUpdate();
     } catch { /* invalid event */ }
   },
 
