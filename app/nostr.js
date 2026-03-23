@@ -36,10 +36,20 @@ let _schnorr = null;
 
 async function loadSecp256k1() {
   if (_schnorr) return _schnorr;
-  const mod = await import('https://esm.sh/@noble/curves@1.4.0/secp256k1.js');
-  _schnorr = mod.schnorr || (mod.secp256k1 && mod.secp256k1.schnorr);
-  if (!_schnorr) throw new Error('secp256k1 schnorr not found in @noble/curves');
-  return _schnorr;
+  // secp256k1 must be loaded from a local file — CDN is blocked on OnionShare.
+  // Place secp256k1.js next to index.html (see GET_OPENPGP.md).
+  // If not available, Nostr features are disabled but the rest of the app works.
+  if (typeof window.nobleSecp256k1 !== 'undefined') {
+    _schnorr = window.nobleSecp256k1.schnorr || window.nobleSecp256k1;
+    return _schnorr;
+  }
+  // Try loading from local file (only works on servers that allow it)
+  try {
+    const mod = await import('./secp256k1.js');
+    _schnorr = mod.schnorr || (mod.secp256k1 && mod.secp256k1.schnorr) || mod.default;
+    if (_schnorr) return _schnorr;
+  } catch(e) { /* not available */ }
+  throw new Error('secp256k1 not available. Nostr requires secp256k1.js next to index.html.');
 }
 
 // ── secp256k1 helpers ────────────────────────────────────

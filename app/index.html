@@ -49,7 +49,7 @@
         <div class="warning-box">
           <div class="w-title">WARNING: PRIVATE KEY - SHOWN ONCE</div>
           <p>Save your private key now. It will <strong class="amber">NOT</strong> be stored anywhere. If you lose it, your identity is gone forever. Your DM key is derived automatically and persists in localStorage.</p>
-          <p id="pq-key-note" class="hidden" style="margin-top:6px;font-size:11px;color:var(--amber)">⚛ Post-quantum keys are larger than classical keys — this is normal. The full key must be saved to sign in.</p>
+          <p id="pq-key-note" class="hidden" class="pq-key-note-text">⚛ Post-quantum keys are larger than classical keys — this is normal. The full key must be saved to sign in.</p>
         </div>
         <div class="field-group field-group-rel">
           <label class="field-label priv-label">&#9888; SIGNING PRIVATE KEY &mdash; SAVE THIS &mdash; PASTE THIS TO LOG IN</label>
@@ -166,7 +166,7 @@
         <button class="btn-tiny" id="btn-export-backup">EXPORT FULL BACKUP</button>
         <div class="sidebar-divider"></div>
         <div class="sidebar-section-label">THEME</div>
-        <select class="field-input" id="theme-select" style="font-size:10px;padding:4px 6px;">
+        <select class="field-input" id="theme-select" class="theme-select-input">
           <option value="matrix">⬛ Matrix</option>
           <option value="dark">🌑 Dark</option>
           <option value="light">☀️ Light</option>
@@ -270,7 +270,7 @@
 
     <!-- BROWSE panel -->
     <div id="ch-panel-browse" class="hidden">
-      <div class="field-hint" style="margin-bottom:8px">Public channels discovered from Nostr relays.</div>
+      <div class="field-hint mb8">Public channels discovered from Nostr relays.</div>
       <div id="ch-browse-list" class="ch-list"></div>
       <div class="modal-btns">
         <button class="btn btn-primary" id="ch-browse-refresh">REFRESH</button>
@@ -341,13 +341,13 @@
         <div class="field-hint" id="ch-settings-pass-status"></div>
         <input class="field-input" id="ch-settings-pass-input" type="password"
           placeholder="New passphrase (blank to remove)" autocomplete="new-password">
-        <button class="btn-tiny" id="ch-settings-pass-btn" style="margin-top:6px">UPDATE PASSPHRASE</button>
+        <button class="btn-tiny" id="ch-settings-pass-btn" class="btn-tiny mt6">UPDATE PASSPHRASE</button>
       </div>
     </div>
 
     <!-- Ban / promote section (owner) -->
     <div id="ch-settings-admin-section" class="hidden">
-      <div class="field-label" style="margin-bottom:6px">MEMBER MANAGEMENT</div>
+      <div class="field-label mb6">MEMBER MANAGEMENT</div>
       <div id="ch-settings-member-list" class="ch-member-list"></div>
     </div>
 
@@ -356,7 +356,7 @@
       <div class="field-group">
         <div class="field-label">GENERATE INVITE TOKEN</div>
         <div class="field-hint">Share this token with users to let them join this channel.</div>
-        <button class="btn-tiny" id="ch-settings-invite-btn" style="margin-top:4px">GENERATE INVITE</button>
+        <button class="btn-tiny" id="ch-settings-invite-btn" class="btn-tiny mt4">GENERATE INVITE</button>
         <textarea class="field-input mono-sm hidden" id="ch-settings-invite-out" rows="3" readonly></textarea>
         <button class="btn-tiny hidden" id="ch-settings-invite-copy">COPY TOKEN</button>
       </div>
@@ -365,7 +365,7 @@
     <!-- Archive section (owner) -->
     <div id="ch-settings-archive-section" class="hidden">
       <div class="field-group">
-        <div class="field-label" style="color:var(--red)">DANGER ZONE</div>
+        <div class="field-label danger-label">DANGER ZONE</div>
         <button class="btn-tiny danger" id="ch-settings-archive-btn">ARCHIVE / DELETE CHANNEL</button>
         <div class="field-hint">Removes channel from all clients. Cannot be undone.</div>
       </div>
@@ -382,7 +382,7 @@
 <div id="nostr-modal" class="modal-overlay hidden">
   <div class="modal-box">
     <div class="modal-title">// NOSTR RELAY SETTINGS</div>
-    <div class="field-hint" style="margin-bottom:12px">
+    <div class="field-hint mb12">
       Connect to Nostr relays to sync messages across devices and users in real-time.
       Messages remain AES-256-GCM encrypted — relays only see ciphertext.
       Use <code>ws://</code> .onion addresses for Tor routing.
@@ -390,19 +390,19 @@
 
     <div id="nostr-relay-list" class="nostr-relay-list"></div>
 
-    <div class="field-group" style="margin-top:12px">
+    <div class="field-group mt12">
       <div class="field-label">ADD RELAY</div>
-      <div style="display:flex;gap:8px">
+      <div class="input-row">
         <input class="field-input" id="nostr-relay-input" type="text"
           placeholder="wss://relay.example.com or ws://onion.onion"
-          spellcheck="false" style="flex:1">
-        <button class="btn-tiny" id="nostr-relay-add" style="white-space:nowrap">ADD</button>
+          spellcheck="false" class="flex1">
+        <button class="btn-tiny" id="nostr-relay-add" class="btn-tiny nowrap">ADD</button>
       </div>
     </div>
 
-    <div class="field-group" style="margin-top:8px">
+    <div class="field-group mt8">
       <div class="field-label">NOSTR TRANSPORT PUBKEY</div>
-      <div class="key-display" id="nostr-transport-pub" style="font-size:10px;max-height:40px"></div>
+      <div class="key-display" id="nostr-transport-pub" class="nostr-pub-display"></div>
       <div class="field-hint">This is your Nostr routing address only — not your CIPHER//NET identity.</div>
     </div>
 
@@ -535,53 +535,12 @@
 </div>
 <div id="screenshot-warn">// SCREENSHOT DETECTED — CONTENT MAY BE CAPTURED</div>
 
-<!-- noble-post-quantum: loaded as classic scripts (CSP safe, works on OnionShare)
-     Place any of these files next to index.html:
-       noble-post-quantum.js  — single bundle
-       noble-pq.js            — alternate name
-       ml-dsa.js + ml-kem.js  — separate files from npm package
-     The script below detects which loaded and sets window._pqLoaded.
+<!-- noble-post-quantum IIFE bundle (CSP safe, works on OnionShare/Nginx/Apache)
+     Build with: npx esbuild entry.js --bundle --format=iife --platform=browser --outfile=noble-post-quantum.js
+     See GET_OPENPGP.md for full instructions.
+     The bundle sets window.ml_dsa65, window.ml_kem768, window._pqLoaded = true
 -->
-<script src="noble-post-quantum.js" onerror="window._pqNPQ=false" onload="window._pqNPQ=true"></script>
-<script src="noble-pq.js" onerror="void(0)" onload="window._pqNPQalt=true"></script>
-<script src="ml-dsa.js"  onerror="void(0)" onload="window._pqDSA=true"></script>
-<script src="ml-kem.js"  onerror="void(0)" onload="window._pqKEM=true"></script>
-<script src="noble-pq-wrap.js" onerror="void(0)"></script>
-<script>
-// Detect what loaded and wire up globals
-(function() {
-  // Case 1: single bundle exposed ml_dsa65 and ml_kem768 directly
-  if (typeof ml_dsa65 !== 'undefined' && typeof ml_kem768 !== 'undefined') {
-    window.ml_dsa65 = ml_dsa65; window.ml_kem768 = ml_kem768;
-    window._pqLoaded = true;
-    console.log('[PQ] ⚛ Ready from single bundle (direct globals)');
-    return;
-  }
-  // Case 2: single bundle wrapped in a named export object
-  var candidates = ['noblePostQuantum','noble_post_quantum','noblePQ','noblePostQuantum'];
-  for (var i = 0; i < candidates.length; i++) {
-    var lib = window[candidates[i]];
-    if (lib && lib.ml_dsa65 && lib.ml_kem768) {
-      window.ml_dsa65 = lib.ml_dsa65; window.ml_kem768 = lib.ml_kem768;
-      window._pqLoaded = true;
-      console.log('[PQ] ⚛ Ready from', candidates[i]);
-      return;
-    }
-  }
-  // Case 3: separate ml-dsa.js + ml-kem.js each set their own global
-  // ml-dsa.js typically sets ml_dsa, mlDsa, or similar
-  var dsaLib = window.ml_dsa || window.mlDsa || window.MlDsa || null;
-  var kemLib = window.ml_kem || window.mlKem || window.MlKem || null;
-  if (dsaLib && dsaLib.ml_dsa65 && kemLib && kemLib.ml_kem768) {
-    window.ml_dsa65 = dsaLib.ml_dsa65; window.ml_kem768 = kemLib.ml_kem768;
-    window._pqLoaded = true;
-    console.log('[PQ] ⚛ Ready from separate ml-dsa.js + ml-kem.js');
-    return;
-  }
-  // Not loaded — app will fall back to ECDSA P-256
-  console.warn('[PQ] noble-post-quantum not found. Place noble-post-quantum.js (or ml-dsa.js+ml-kem.js) next to index.html. Using ECDSA P-256.');
-})();
-</script>
+<script src="noble-post-quantum.js"></script>
 <script src="openpgp.min.js"></script>
 <script src="channels.js"></script>
 <script src="nostr.js"></script>

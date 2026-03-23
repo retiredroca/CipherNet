@@ -1,4 +1,1918 @@
-var re=BigInt(4294967295),We=BigInt(32);function Kn(e,t=!1){return t?{h:Number(e&re),l:Number(e>>We&re)}:{h:Number(e>>We&re)|0,l:Number(e&re)|0}}function ce(e,t=!1){let n=e.length,o=new Uint32Array(n),s=new Uint32Array(n);for(let r=0;r<n;r++){let{h:c,l:i}=Kn(e[r],t);[o[r],s[r]]=[c,i]}return[o,s]}var me=(e,t,n)=>e>>>n,Be=(e,t,n)=>e<<32-n|t>>>n,Ct=(e,t,n)=>e>>>n|t<<32-n,Ut=(e,t,n)=>e<<32-n|t>>>n,Wt=(e,t,n)=>e<<64-n|t>>>n-32,Yt=(e,t,n)=>e>>>n-32|t<<64-n;var Ye=(e,t,n)=>e<<n|t>>>32-n,ze=(e,t,n)=>t<<n|e>>>32-n,$e=(e,t,n)=>t<<n-32|e>>>64-n,Ze=(e,t,n)=>e<<n-32|t>>>64-n;function it(e,t,n,o){let s=(t>>>0)+(o>>>0);return{h:e+n+(s/2**32|0)|0,l:s|0}}var qe=(e,t,n)=>(e>>>0)+(t>>>0)+(n>>>0),Qe=(e,t,n,o)=>t+n+o+(e/2**32|0)|0,Je=(e,t,n,o)=>(e>>>0)+(t>>>0)+(n>>>0)+(o>>>0),tn=(e,t,n,o,s)=>t+n+o+s+(e/2**32|0)|0,en=(e,t,n,o,s)=>(e>>>0)+(t>>>0)+(n>>>0)+(o>>>0)+(s>>>0),nn=(e,t,n,o,s,r)=>t+n+o+s+r+(e/2**32|0)|0;var It=typeof globalThis=="object"&&"crypto"in globalThis?globalThis.crypto:void 0;function Dn(e){return e instanceof Uint8Array||ArrayBuffer.isView(e)&&e.constructor.name==="Uint8Array"}function He(e){if(!Number.isSafeInteger(e)||e<0)throw new Error("positive integer expected, got "+e)}function ft(e,...t){if(!Dn(e))throw new Error("Uint8Array expected");if(t.length>0&&!t.includes(e.length))throw new Error("Uint8Array expected of length "+t+", got length="+e.length)}function jt(e,t=!0){if(e.destroyed)throw new Error("Hash instance has been destroyed");if(t&&e.finished)throw new Error("Hash#digest() has already been called")}function ie(e,t){ft(e);let n=t.outputLen;if(e.length<n)throw new Error("digestInto() expects output buffer of length at least "+n)}function fe(e){return new Uint32Array(e.buffer,e.byteOffset,Math.floor(e.byteLength/4))}function at(...e){for(let t=0;t<e.length;t++)e[t].fill(0)}function ae(e){return new DataView(e.buffer,e.byteOffset,e.byteLength)}function ot(e,t){return e<<32-t|e>>>t}var Rn=new Uint8Array(new Uint32Array([287454020]).buffer)[0]===68;function jn(e){return e<<24&4278190080|e<<8&16711680|e>>>8&65280|e>>>24&255}function Pn(e){for(let t=0;t<e.length;t++)e[t]=jn(e[t]);return e}var Le=Rn?e=>e:Pn,Nn=typeof Uint8Array.from([]).toHex=="function"&&typeof Uint8Array.fromHex=="function";var pt={_0:48,_9:57,A:65,F:70,a:97,f:102};function on(e){if(e>=pt._0&&e<=pt._9)return e-pt._0;if(e>=pt.A&&e<=pt.F)return e-(pt.A-10);if(e>=pt.a&&e<=pt.f)return e-(pt.a-10)}function Q(e){if(typeof e!="string")throw new Error("hex string expected, got "+typeof e);if(Nn)return Uint8Array.fromHex(e);let t=e.length,n=t/2;if(t%2)throw new Error("hex string expected, got unpadded hex of length "+t);let o=new Uint8Array(n);for(let s=0,r=0;s<n;s++,r+=2){let c=on(e.charCodeAt(r)),i=on(e.charCodeAt(r+1));if(c===void 0||i===void 0){let h=e[r]+e[r+1];throw new Error('hex string expected, got non-hex character "'+h+'" at index '+r)}o[s]=c*16+i}return o}function sn(e){if(typeof e!="string")throw new Error("string expected");return new Uint8Array(new TextEncoder().encode(e))}function Pt(e){return typeof e=="string"&&(e=sn(e)),ft(e),e}function Ee(...e){let t=0;for(let o=0;o<e.length;o++){let s=e[o];ft(s),t+=s.length}let n=new Uint8Array(t);for(let o=0,s=0;o<e.length;o++){let r=e[o];n.set(r,s),s+=r.length}return n}var Rt=class{};function bt(e){let t=o=>e().update(Pt(o)).digest(),n=e();return t.outputLen=n.outputLen,t.blockLen=n.blockLen,t.create=()=>e(),t}function rn(e){let t=(o,s)=>e(s).update(Pt(o)).digest(),n=e({});return t.outputLen=n.outputLen,t.blockLen=n.blockLen,t.create=o=>e(o),t}function cn(e=32){if(It&&typeof It.getRandomValues=="function")return It.getRandomValues(new Uint8Array(e));if(It&&typeof It.randomBytes=="function")return Uint8Array.from(It.randomBytes(e));throw new Error("crypto.getRandomValues must be defined")}var vn=BigInt(0),zt=BigInt(1),Vn=BigInt(2),Xn=BigInt(7),Wn=BigInt(256),Yn=BigInt(113),hn=[],ln=[],dn=[];for(let e=0,t=zt,n=1,o=0;e<24;e++){[n,o]=[o,(2*n+3*o)%5],hn.push(2*(5*o+n)),ln.push((e+1)*(e+2)/2%64);let s=vn;for(let r=0;r<7;r++)t=(t<<zt^(t>>Xn)*Yn)%Wn,t&Vn&&(s^=zt<<(zt<<BigInt(r))-zt);dn.push(s)}var un=ce(dn,!0),zn=un[0],$n=un[1],fn=(e,t,n)=>n>32?$e(e,t,n):Ye(e,t,n),an=(e,t,n)=>n>32?Ze(e,t,n):ze(e,t,n);function Zn(e,t=24){let n=new Uint32Array(10);for(let o=24-t;o<24;o++){for(let c=0;c<10;c++)n[c]=e[c]^e[c+10]^e[c+20]^e[c+30]^e[c+40];for(let c=0;c<10;c+=2){let i=(c+8)%10,h=(c+2)%10,w=n[h],m=n[h+1],a=fn(w,m,1)^n[i],y=an(w,m,1)^n[i+1];for(let A=0;A<50;A+=10)e[c+A]^=a,e[c+A+1]^=y}let s=e[2],r=e[3];for(let c=0;c<24;c++){let i=ln[c],h=fn(s,r,i),w=an(s,r,i),m=hn[c];s=e[m],r=e[m+1],e[m]=h,e[m+1]=w}for(let c=0;c<50;c+=10){for(let i=0;i<10;i++)n[i]=e[c+i];for(let i=0;i<10;i++)e[c+i]^=~n[(i+2)%10]&n[(i+4)%10]}e[0]^=zn[o],e[1]^=$n[o]}at(n)}var he=class e extends Rt{constructor(t,n,o,s=!1,r=24){if(super(),this.pos=0,this.posOut=0,this.finished=!1,this.destroyed=!1,this.enableXOF=!1,this.blockLen=t,this.suffix=n,this.outputLen=o,this.enableXOF=s,this.rounds=r,He(o),!(0<t&&t<200))throw new Error("only keccak-f1600 function is supported");this.state=new Uint8Array(200),this.state32=fe(this.state)}clone(){return this._cloneInto()}keccak(){Le(this.state32),Zn(this.state32,this.rounds),Le(this.state32),this.posOut=0,this.pos=0}update(t){jt(this),t=Pt(t),ft(t);let{blockLen:n,state:o}=this,s=t.length;for(let r=0;r<s;){let c=Math.min(n-this.pos,s-r);for(let i=0;i<c;i++)o[this.pos++]^=t[r++];this.pos===n&&this.keccak()}return this}finish(){if(this.finished)return;this.finished=!0;let{state:t,suffix:n,pos:o,blockLen:s}=this;t[o]^=n,(n&128)!==0&&o===s-1&&this.keccak(),t[s-1]^=128,this.keccak()}writeInto(t){jt(this,!1),ft(t),this.finish();let n=this.state,{blockLen:o}=this;for(let s=0,r=t.length;s<r;){this.posOut>=o&&this.keccak();let c=Math.min(o-this.posOut,r-s);t.set(n.subarray(this.posOut,this.posOut+c),s),this.posOut+=c,s+=c}return t}xofInto(t){if(!this.enableXOF)throw new Error("XOF is not possible for this instance");return this.writeInto(t)}xof(t){return He(t),this.xofInto(new Uint8Array(t))}digestInto(t){if(ie(t,this),this.finished)throw new Error("digest() was already called");return this.writeInto(t),this.destroy(),t}digest(){return this.digestInto(new Uint8Array(this.outputLen))}destroy(){this.destroyed=!0,at(this.state)}_cloneInto(t){let{blockLen:n,suffix:o,outputLen:s,rounds:r,enableXOF:c}=this;return t||(t=new e(n,o,s,c,r)),t.state32.set(this.state32),t.pos=this.pos,t.posOut=this.posOut,t.finished=this.finished,t.rounds=r,t.suffix=o,t.outputLen=s,t.enableXOF=c,t.destroyed=this.destroyed,t}},le=(e,t,n)=>bt(()=>new he(t,e,n)),xn=le(6,144,224/8),de=le(6,136,256/8),pn=le(6,104,384/8),ue=le(6,72,512/8);var bn=(e,t,n)=>rn((o={})=>new he(t,e,o.dkLen===void 0?n:o.dkLen,!0)),xe=bn(31,168,128/8),G=bn(31,136,256/8);function qn(e,t,n,o){if(typeof e.setBigUint64=="function")return e.setBigUint64(t,n,o);let s=BigInt(32),r=BigInt(4294967295),c=Number(n>>s&r),i=Number(n&r),h=o?4:0,w=o?0:4;e.setUint32(t+h,c,o),e.setUint32(t+w,i,o)}function yn(e,t,n){return e&t^~e&n}function gn(e,t,n){return e&t^e&n^t&n}var $t=class extends Rt{constructor(t,n,o,s){super(),this.finished=!1,this.length=0,this.pos=0,this.destroyed=!1,this.blockLen=t,this.outputLen=n,this.padOffset=o,this.isLE=s,this.buffer=new Uint8Array(t),this.view=ae(this.buffer)}update(t){jt(this),t=Pt(t),ft(t);let{view:n,buffer:o,blockLen:s}=this,r=t.length;for(let c=0;c<r;){let i=Math.min(s-this.pos,r-c);if(i===s){let h=ae(t);for(;s<=r-c;c+=s)this.process(h,c);continue}o.set(t.subarray(c,c+i),this.pos),this.pos+=i,c+=i,this.pos===s&&(this.process(n,0),this.pos=0)}return this.length+=t.length,this.roundClean(),this}digestInto(t){jt(this),ie(t,this),this.finished=!0;let{buffer:n,view:o,blockLen:s,isLE:r}=this,{pos:c}=this;n[c++]=128,at(this.buffer.subarray(c)),this.padOffset>s-c&&(this.process(o,0),c=0);for(let a=c;a<s;a++)n[a]=0;qn(o,s-8,BigInt(this.length*8),r),this.process(o,0);let i=ae(t),h=this.outputLen;if(h%4)throw new Error("_sha2: outputLen should be aligned to 32bit");let w=h/4,m=this.get();if(w>m.length)throw new Error("_sha2: outputLen bigger than state");for(let a=0;a<w;a++)i.setUint32(4*a,m[a],r)}digest(){let{buffer:t,outputLen:n}=this;this.digestInto(t);let o=t.slice(0,n);return this.destroy(),o}_cloneInto(t){t||(t=new this.constructor),t.set(...this.get());let{blockLen:n,buffer:o,length:s,finished:r,destroyed:c,pos:i}=this;return t.destroyed=c,t.finished=r,t.length=s,t.pos=i,s%n&&t.buffer.set(o),t}clone(){return this._cloneInto()}},yt=Uint32Array.from([1779033703,3144134277,1013904242,2773480762,1359893119,2600822924,528734635,1541459225]),gt=Uint32Array.from([3238371032,914150663,812702999,4144912697,4290775857,1750603025,1694076839,3204075428]),R=Uint32Array.from([3418070365,3238371032,1654270250,914150663,2438529370,812702999,355462360,4144912697,1731405415,4290775857,2394180231,1750603025,3675008525,1694076839,1203062813,3204075428]),j=Uint32Array.from([1779033703,4089235720,3144134277,2227873595,1013904242,4271175723,2773480762,1595750129,1359893119,2917565137,2600822924,725511199,528734635,4215389547,1541459225,327033209]);var Qn=Uint32Array.from([1116352408,1899447441,3049323471,3921009573,961987163,1508970993,2453635748,2870763221,3624381080,310598401,607225278,1426881987,1925078388,2162078206,2614888103,3248222580,3835390401,4022224774,264347078,604807628,770255983,1249150122,1555081692,1996064986,2554220882,2821834349,2952996808,3210313671,3336571891,3584528711,113926993,338241895,666307205,773529912,1294757372,1396182291,1695183700,1986661051,2177026350,2456956037,2730485921,2820302411,3259730800,3345764771,3516065817,3600352804,4094571909,275423344,430227734,506948616,659060556,883997877,958139571,1322822218,1537002063,1747873779,1955562222,2024104815,2227730452,2361852424,2428436474,2756734187,3204031479,3329325298]),Bt=new Uint32Array(64),pe=class extends $t{constructor(t=32){super(64,t,8,!1),this.A=yt[0]|0,this.B=yt[1]|0,this.C=yt[2]|0,this.D=yt[3]|0,this.E=yt[4]|0,this.F=yt[5]|0,this.G=yt[6]|0,this.H=yt[7]|0}get(){let{A:t,B:n,C:o,D:s,E:r,F:c,G:i,H:h}=this;return[t,n,o,s,r,c,i,h]}set(t,n,o,s,r,c,i,h){this.A=t|0,this.B=n|0,this.C=o|0,this.D=s|0,this.E=r|0,this.F=c|0,this.G=i|0,this.H=h|0}process(t,n){for(let a=0;a<16;a++,n+=4)Bt[a]=t.getUint32(n,!1);for(let a=16;a<64;a++){let y=Bt[a-15],A=Bt[a-2],k=ot(y,7)^ot(y,18)^y>>>3,U=ot(A,17)^ot(A,19)^A>>>10;Bt[a]=U+Bt[a-7]+k+Bt[a-16]|0}let{A:o,B:s,C:r,D:c,E:i,F:h,G:w,H:m}=this;for(let a=0;a<64;a++){let y=ot(i,6)^ot(i,11)^ot(i,25),A=m+y+yn(i,h,w)+Qn[a]+Bt[a]|0,U=(ot(o,2)^ot(o,13)^ot(o,22))+gn(o,s,r)|0;m=w,w=h,h=i,i=c+A|0,c=r,r=s,s=o,o=A+U|0}o=o+this.A|0,s=s+this.B|0,r=r+this.C|0,c=c+this.D|0,i=i+this.E|0,h=h+this.F|0,w=w+this.G|0,m=m+this.H|0,this.set(o,s,r,c,i,h,w,m)}roundClean(){at(Bt)}destroy(){this.set(0,0,0,0,0,0,0,0),at(this.buffer)}},Te=class extends pe{constructor(){super(28),this.A=gt[0]|0,this.B=gt[1]|0,this.C=gt[2]|0,this.D=gt[3]|0,this.E=gt[4]|0,this.F=gt[5]|0,this.G=gt[6]|0,this.H=gt[7]|0}},An=ce(["0x428a2f98d728ae22","0x7137449123ef65cd","0xb5c0fbcfec4d3b2f","0xe9b5dba58189dbbc","0x3956c25bf348b538","0x59f111f1b605d019","0x923f82a4af194f9b","0xab1c5ed5da6d8118","0xd807aa98a3030242","0x12835b0145706fbe","0x243185be4ee4b28c","0x550c7dc3d5ffb4e2","0x72be5d74f27b896f","0x80deb1fe3b1696b1","0x9bdc06a725c71235","0xc19bf174cf692694","0xe49b69c19ef14ad2","0xefbe4786384f25e3","0x0fc19dc68b8cd5b5","0x240ca1cc77ac9c65","0x2de92c6f592b0275","0x4a7484aa6ea6e483","0x5cb0a9dcbd41fbd4","0x76f988da831153b5","0x983e5152ee66dfab","0xa831c66d2db43210","0xb00327c898fb213f","0xbf597fc7beef0ee4","0xc6e00bf33da88fc2","0xd5a79147930aa725","0x06ca6351e003826f","0x142929670a0e6e70","0x27b70a8546d22ffc","0x2e1b21385c26c926","0x4d2c6dfc5ac42aed","0x53380d139d95b3df","0x650a73548baf63de","0x766a0abb3c77b2a8","0x81c2c92e47edaee6","0x92722c851482353b","0xa2bfe8a14cf10364","0xa81a664bbc423001","0xc24b8b70d0f89791","0xc76c51a30654be30","0xd192e819d6ef5218","0xd69906245565a910","0xf40e35855771202a","0x106aa07032bbd1b8","0x19a4c116b8d2d0c8","0x1e376c085141ab53","0x2748774cdf8eeb99","0x34b0bcb5e19b48a8","0x391c0cb3c5c95a63","0x4ed8aa4ae3418acb","0x5b9cca4f7763e373","0x682e6ff3d6b2b8a3","0x748f82ee5defb2fc","0x78a5636f43172f60","0x84c87814a1f0ab72","0x8cc702081a6439ec","0x90befffa23631e28","0xa4506cebde82bde9","0xbef9a3f7b2c67915","0xc67178f2e372532b","0xca273eceea26619c","0xd186b8c721c0c207","0xeada7dd6cde0eb1e","0xf57d4f7fee6ed178","0x06f067aa72176fba","0x0a637dc5a2c898a6","0x113f9804bef90dae","0x1b710b35131c471b","0x28db77f523047d84","0x32caab7b40c72493","0x3c9ebe0a15c9bebc","0x431d67c49c100d4c","0x4cc5d4becb3e42b6","0x597f299cfc657e2a","0x5fcb6fab3ad6faec","0x6c44198c4a475817"].map(e=>BigInt(e))),Jn=An[0],to=An[1],Ht=new Uint32Array(80),Lt=new Uint32Array(80),Nt=class extends $t{constructor(t=64){super(128,t,16,!1),this.Ah=j[0]|0,this.Al=j[1]|0,this.Bh=j[2]|0,this.Bl=j[3]|0,this.Ch=j[4]|0,this.Cl=j[5]|0,this.Dh=j[6]|0,this.Dl=j[7]|0,this.Eh=j[8]|0,this.El=j[9]|0,this.Fh=j[10]|0,this.Fl=j[11]|0,this.Gh=j[12]|0,this.Gl=j[13]|0,this.Hh=j[14]|0,this.Hl=j[15]|0}get(){let{Ah:t,Al:n,Bh:o,Bl:s,Ch:r,Cl:c,Dh:i,Dl:h,Eh:w,El:m,Fh:a,Fl:y,Gh:A,Gl:k,Hh:U,Hl:d}=this;return[t,n,o,s,r,c,i,h,w,m,a,y,A,k,U,d]}set(t,n,o,s,r,c,i,h,w,m,a,y,A,k,U,d){this.Ah=t|0,this.Al=n|0,this.Bh=o|0,this.Bl=s|0,this.Ch=r|0,this.Cl=c|0,this.Dh=i|0,this.Dl=h|0,this.Eh=w|0,this.El=m|0,this.Fh=a|0,this.Fl=y|0,this.Gh=A|0,this.Gl=k|0,this.Hh=U|0,this.Hl=d|0}process(t,n){for(let u=0;u<16;u++,n+=4)Ht[u]=t.getUint32(n),Lt[u]=t.getUint32(n+=4);for(let u=16;u<80;u++){let T=Ht[u-15]|0,b=Lt[u-15]|0,E=Ct(T,b,1)^Ct(T,b,8)^me(T,b,7),K=Ut(T,b,1)^Ut(T,b,8)^Be(T,b,7),S=Ht[u-2]|0,C=Lt[u-2]|0,$=Ct(S,C,19)^Wt(S,C,61)^me(S,C,6),F=Ut(S,C,19)^Yt(S,C,61)^Be(S,C,6),J=Je(K,F,Lt[u-7],Lt[u-16]),et=tn(J,E,$,Ht[u-7],Ht[u-16]);Ht[u]=et|0,Lt[u]=J|0}let{Ah:o,Al:s,Bh:r,Bl:c,Ch:i,Cl:h,Dh:w,Dl:m,Eh:a,El:y,Fh:A,Fl:k,Gh:U,Gl:d,Hh:B,Hl:g}=this;for(let u=0;u<80;u++){let T=Ct(a,y,14)^Ct(a,y,18)^Wt(a,y,41),b=Ut(a,y,14)^Ut(a,y,18)^Yt(a,y,41),E=a&A^~a&U,K=y&k^~y&d,S=en(g,b,K,to[u],Lt[u]),C=nn(S,B,T,E,Jn[u],Ht[u]),$=S|0,F=Ct(o,s,28)^Wt(o,s,34)^Wt(o,s,39),J=Ut(o,s,28)^Yt(o,s,34)^Yt(o,s,39),et=o&r^o&i^r&i,lt=s&c^s&h^c&h;B=U|0,g=d|0,U=A|0,d=k|0,A=a|0,k=y|0,{h:a,l:y}=it(w|0,m|0,C|0,$|0),w=i|0,m=h|0,i=r|0,h=c|0,r=o|0,c=s|0;let Tt=qe($,J,lt);o=Qe(Tt,C,F,et),s=Tt|0}({h:o,l:s}=it(this.Ah|0,this.Al|0,o|0,s|0)),{h:r,l:c}=it(this.Bh|0,this.Bl|0,r|0,c|0),{h:i,l:h}=it(this.Ch|0,this.Cl|0,i|0,h|0),{h:w,l:m}=it(this.Dh|0,this.Dl|0,w|0,m|0),{h:a,l:y}=it(this.Eh|0,this.El|0,a|0,y|0),{h:A,l:k}=it(this.Fh|0,this.Fl|0,A|0,k|0),{h:U,l:d}=it(this.Gh|0,this.Gl|0,U|0,d|0),{h:B,l:g}=it(this.Hh|0,this.Hl|0,B|0,g|0),this.set(o,s,r,c,i,h,w,m,a,y,A,k,U,d,B,g)}roundClean(){at(Ht,Lt)}destroy(){at(this.buffer),this.set(0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)}},_e=class extends Nt{constructor(){super(48),this.Ah=R[0]|0,this.Al=R[1]|0,this.Bh=R[2]|0,this.Bl=R[3]|0,this.Ch=R[4]|0,this.Cl=R[5]|0,this.Dh=R[6]|0,this.Dl=R[7]|0,this.Eh=R[8]|0,this.El=R[9]|0,this.Fh=R[10]|0,this.Fl=R[11]|0,this.Gh=R[12]|0,this.Gl=R[13]|0,this.Hh=R[14]|0,this.Hl=R[15]|0}},v=Uint32Array.from([2352822216,424955298,1944164710,2312950998,502970286,855612546,1738396948,1479516111,258812777,2077511080,2011393907,79989058,1067287976,1780299464,286451373,2446758561]),V=Uint32Array.from([573645204,4230739756,2673172387,3360449730,596883563,1867755857,2520282905,1497426621,2519219938,2827943907,3193839141,1401305490,721525244,746961066,246885852,2177182882]),ke=class extends Nt{constructor(){super(28),this.Ah=v[0]|0,this.Al=v[1]|0,this.Bh=v[2]|0,this.Bl=v[3]|0,this.Ch=v[4]|0,this.Cl=v[5]|0,this.Dh=v[6]|0,this.Dl=v[7]|0,this.Eh=v[8]|0,this.El=v[9]|0,this.Fh=v[10]|0,this.Fl=v[11]|0,this.Gh=v[12]|0,this.Gl=v[13]|0,this.Hh=v[14]|0,this.Hl=v[15]|0}},Se=class extends Nt{constructor(){super(32),this.Ah=V[0]|0,this.Al=V[1]|0,this.Bh=V[2]|0,this.Bl=V[3]|0,this.Ch=V[4]|0,this.Cl=V[5]|0,this.Dh=V[6]|0,this.Dl=V[7]|0,this.Eh=V[8]|0,this.El=V[9]|0,this.Fh=V[10]|0,this.Fl=V[11]|0,this.Gh=V[12]|0,this.Gl=V[13]|0,this.Hh=V[14]|0,this.Hl=V[15]|0}},wn=bt(()=>new pe),mn=bt(()=>new Te),Bn=bt(()=>new Nt),Hn=bt(()=>new _e),Ln=bt(()=>new Se),En=bt(()=>new ke);var D=ft,Zt=cn;function qt(e,t){if(e.length!==t.length)return!1;let n=0;for(let o=0;o<e.length;o++)n|=e[o]^t[o];return n===0}function ht(...e){let t=o=>typeof o=="number"?o:o.bytesLen,n=e.reduce((o,s)=>o+t(s),0);return{bytesLen:n,encode:o=>{let s=new Uint8Array(n);for(let r=0,c=0;r<e.length;r++){let i=e[r],h=t(i),w=typeof i=="number"?o[r]:i.encode(o[r]);D(w,h),s.set(w,c),typeof i!="number"&&w.fill(0),c+=h}return s},decode:o=>{D(o,n);let s=[];for(let r of e){let c=t(r),i=o.subarray(0,c);s.push(typeof r=="number"?i:r.decode(i)),o=o.subarray(c)}return s}}}function st(e,t){let n=t*e.bytesLen;return{bytesLen:n,encode:o=>{if(o.length!==t)throw new Error(`vecCoder.encode: wrong length=${o.length}. Expected: ${t}`);let s=new Uint8Array(n);for(let r=0,c=0;r<o.length;r++){let i=e.encode(o[r]);s.set(i,c),i.fill(0),c+=i.length}return s},decode:o=>{D(o,n);let s=[];for(let r=0;r<o.length;r+=e.bytesLen)s.push(e.decode(o.subarray(r,r+e.bytesLen)));return s}}}function rt(...e){for(let t of e)if(Array.isArray(t))for(let n of t)n.fill(0);else t.fill(0)}function Ce(e){return(1<<e)-1}var Mt=new Uint8Array(0);function Ue(e,t=Mt){if(D(e),D(t),t.length>255)throw new Error("context should be less than 255 bytes");return Ee(new Uint8Array([0,t.length]),t,e)}var Tn={"SHA2-256":{oid:Q("0609608648016503040201"),hash:wn},"SHA2-384":{oid:Q("0609608648016503040202"),hash:Hn},"SHA2-512":{oid:Q("0609608648016503040203"),hash:Bn},"SHA2-224":{oid:Q("0609608648016503040204"),hash:mn},"SHA2-512/224":{oid:Q("0609608648016503040205"),hash:En},"SHA2-512/256":{oid:Q("0609608648016503040206"),hash:Ln},"SHA3-224":{oid:Q("0609608648016503040207"),hash:xn},"SHA3-256":{oid:Q("0609608648016503040208"),hash:de},"SHA3-384":{oid:Q("0609608648016503040209"),hash:pn},"SHA3-512":{oid:Q("060960864801650304020A"),hash:ue},"SHAKE-128":{oid:Q("060960864801650304020B"),hash:e=>xe(e,{dkLen:32})},"SHAKE-256":{oid:Q("060960864801650304020C"),hash:e=>G(e,{dkLen:64})}};function Ie(e,t,n=Mt){if(D(t),D(n),n.length>255)throw new Error("context should be less than 255 bytes");if(!Tn[e])throw new Error("unknown hash: "+e);let{oid:o,hash:s}=Tn[e],r=s(t);return Ee(new Uint8Array([1,n.length]),n,o,r)}function eo(e,t=8){let s=e.toString(2).padStart(8,"0").slice(-t).padStart(7,"0").split("").reverse().join("");return Number.parseInt(s,2)}var be=e=>{let{newPoly:t,N:n,Q:o,F:s,ROOT_OF_UNITY:r,brvBits:c,isKyber:i}=e,h=(d,B=o)=>{let g=d%B|0;return(g>=0?g|0:B+g|0)|0},w=(d,B=o)=>{let g=h(d,B)|0;return(g>B>>1?g-B|0:g)|0};function m(){let d=t(n);for(let B=0;B<n;B++){let g=eo(B,c),u=BigInt(r)**BigInt(g)%BigInt(o);d[B]=Number(u)|0}return d}let a=m(),y=i?128:n,A=i?1:0;return{mod:h,smod:w,nttZetas:a,NTT:{encode:d=>{for(let B=1,g=128;g>A;g>>=1)for(let u=0;u<n;u+=2*g){let T=a[B++];for(let b=u;b<u+g;b++){let E=h(T*d[b+g]);d[b+g]=h(d[b]-E)|0,d[b]=h(d[b]+E)|0}}return d},decode:d=>{for(let B=y-1,g=1+A;g<y+A;g<<=1)for(let u=0;u<n;u+=2*g){let T=a[B--];for(let b=u;b<u+g;b++){let E=d[b];d[b]=h(E+d[b+g]),d[b+g]=h(T*(d[b+g]-E))}}for(let B=0;B<d.length;B++)d[B]=h(s*d[B]);return d}},bitsCoder:(d,B)=>{let g=Ce(d),u=d*(n/8);return{bytesLen:u,encode:T=>{let b=new Uint8Array(u);for(let E=0,K=0,S=0,C=0;E<T.length;E++)for(K|=(B.encode(T[E])&g)<<S,S+=d;S>=8;S-=8,K>>=8)b[C++]=K&Ce(S);return b},decode:T=>{let b=t(n);for(let E=0,K=0,S=0,C=0;E<T.length;E++)for(K|=T[E]<<S,S+=8;S>=d;S-=d,K>>=d)b[C++]=B.decode(K&g);return b}}}}},_n=e=>(t,n)=>{n||(n=e.blockLen);let o=new Uint8Array(t.length+2);o.set(t);let s=t.length,r=new Uint8Array(n),c=e.create({}),i=0,h=0;return{stats:()=>({calls:i,xofs:h}),get:(w,m)=>(o[s+0]=w,o[s+1]=m,c.destroy(),c=e.create({}).update(o),i++,()=>(h++,c.xofInto(r))),clean:()=>{c.destroy(),r.fill(0),o.fill(0)}}},vt=_n(xe),ye=_n(G);var O=256,Et=8380417,no=1753,oo=8347681,Kt=13,Oe=Math.floor((Et-1)/88)|0,Fe=Math.floor((Et-1)/32)|0,Ke={2:{K:4,L:4,D:Kt,GAMMA1:2**17,GAMMA2:Oe,TAU:39,ETA:2,OMEGA:80},3:{K:6,L:5,D:Kt,GAMMA1:2**19,GAMMA2:Fe,TAU:49,ETA:4,OMEGA:55},5:{K:8,L:7,D:Kt,GAMMA1:2**19,GAMMA2:Fe,TAU:60,ETA:2,OMEGA:75}},tt=e=>new Int32Array(e),{mod:Ft,smod:ge,NTT:Y,bitsCoder:so}=be({N:O,Q:Et,F:oo,ROOT_OF_UNITY:no,newPoly:tt,isKyber:!1,brvBits:8}),kn=e=>e,Qt=(e,t=kn,n=kn)=>so(e,{encode:o=>t(n(o)),decode:o=>n(t(o))}),Vt=(e,t)=>{for(let n=0;n<e.length;n++)e[n]=Ft(e[n]+t[n]);return e},Sn=(e,t)=>{for(let n=0;n<e.length;n++)e[n]=Ft(e[n]-t[n]);return e},ro=e=>{for(let t=0;t<O;t++)e[t]<<=Kt;return e},Jt=(e,t)=>{for(let n=0;n<O;n++)if(Math.abs(ge(e[n]))>=t)return!0;return!1},Ot=(e,t)=>{let n=tt(O);for(let o=0;o<e.length;o++)n[o]=Ft(e[o]*t[o]);return n};function Me(e){let t=tt(O);for(let n=0;n<O;){let o=e();if(o.length%3)throw new Error("RejNTTPoly: unaligned block");for(let s=0;n<O&&s<=o.length-3;s+=3){let r=(o[s+0]|o[s+1]<<8|o[s+2]<<16)&8388607;r<Et&&(t[n++]=r)}}return t}function Ge(e){let{K:t,L:n,GAMMA1:o,GAMMA2:s,TAU:r,ETA:c,OMEGA:i}=e,{CRH_BYTES:h,TR_BYTES:w,C_TILDE_BYTES:m,XOF128:a,XOF256:y}=e;if(![2,4].includes(c))throw new Error("Wrong ETA");if(![1<<17,1<<19].includes(o))throw new Error("Wrong GAMMA1");if(![Oe,Fe].includes(s))throw new Error("Wrong GAMMA2");let A=r*c,k=f=>{let x=Ft(f),l=ge(x,2*s)|0;return x-l===Et-1?{r1:0,r0:l-1|0}:{r1:Math.floor((x-l)/(2*s))|0,r0:l}},U=f=>k(f).r1,d=f=>k(f).r0,B=(f,x)=>f<=s||f>Et-s||f===Et-s&&x===0?0:1,g=(f,x)=>{let l=Math.floor((Et-1)/(2*s)),{r1:p,r0:H}=k(x);return f===1?H>0?Ft(p+1,l)|0:Ft(p-1,l)|0:p|0},u=f=>{let x=Ft(f),l=ge(x,2**Kt)|0;return{r1:Math.floor((x-l)/2**Kt)|0,r0:l}},T={bytesLen:i+t,encode:f=>{if(f===!1)throw new Error("hint.encode: hint is false");let x=new Uint8Array(i+t);for(let l=0,p=0;l<t;l++){for(let H=0;H<O;H++)f[l][H]!==0&&(x[p++]=H);x[i+l]=p}return x},decode:f=>{let x=[],l=0;for(let p=0;p<t;p++){let H=tt(O);if(f[i+p]<l||f[i+p]>i)return!1;for(let _=l;_<f[i+p];_++){if(_>l&&f[_]<=f[_-1])return!1;H[f[_]]=1}l=f[i+p],x.push(H)}for(let p=l;p<i;p++)if(f[p]!==0)return!1;return x}},b=Qt(c===2?3:4,f=>c-f,f=>{if(!(-c<=f&&f<=c))throw new Error(`malformed key s1/s3 ${f} outside of ETA range [${-c}, ${c}]`);return f}),E=Qt(13,f=>(1<<Kt-1)-f),K=Qt(10),S=Qt(o===1<<17?18:20,f=>ge(o-f)),C=Qt(s===Oe?6:4),$=st(C,t),F=ht(32,st(K,t)),J=ht(32,32,w,st(b,n),st(b,t),st(E,t)),et=ht(m,st(S,n),T),lt=c===2?f=>f<15?2-f%5:!1:f=>f<9?4-f:!1;function Tt(f){let x=tt(O);for(let l=0;l<O;){let p=f();for(let H=0;l<O&&H<p.length;H+=1){let _=lt(p[H]&15),P=lt(p[H]>>4&15);_!==!1&&(x[l++]=_),l<O&&P!==!1&&(x[l++]=P)}}return x}let Pe=f=>{let x=tt(O),l=G.create({}).update(f),p=new Uint8Array(G.blockLen);l.xofInto(p);let H=p.slice(0,8);for(let _=O-r,P=8,z=0,N=0;_<O;_++){let W=_+1;for(;W>_;)W=p[P++],!(P<G.blockLen)&&(l.xofInto(p),P=0);x[_]=x[W],x[W]=1-((H[z]>>N++&1)<<1),N>=8&&(z++,N=0)}return x},Un=f=>{let x=tt(O),l=tt(O);for(let p=0;p<f.length;p++){let{r0:H,r1:_}=u(f[p]);x[p]=H,l[p]=_}return{r0:x,r1:l}},In=(f,x)=>{for(let l=0;l<O;l++)f[l]=g(x[l],f[l]);return f},Mn=(f,x)=>{let l=tt(O),p=0;for(let H=0;H<O;H++){let _=B(f[H],x[H]);l[H]=_,p+=_}return{v:l,cnt:p}},On=32,Ne=ht(32,64,32),_t={signRandBytes:On,keygen:f=>{let x=new Uint8Array(34),l=f===void 0;l&&(f=Zt(32)),D(f,32),x.set(f),l&&f.fill(0),x[32]=t,x[33]=n;let[p,H,_]=Ne.decode(G(x,{dkLen:Ne.bytesLen})),P=y(H),z=[];for(let I=0;I<n;I++)z.push(Tt(P.get(I&255,I>>8&255)));let N=[];for(let I=n;I<n+t;I++)N.push(Tt(P.get(I&255,I>>8&255)));let W=z.map(I=>Y.encode(I.slice())),dt=[],wt=[],ut=a(p),nt=tt(O);for(let I=0;I<t;I++){nt.fill(0);for(let q=0;q<n;q++){let St=Me(ut.get(q,I));Vt(nt,Ot(St,W[q]))}Y.decode(nt);let{r0:Z,r1:ct}=Un(Vt(nt,N[I]));dt.push(Z),wt.push(ct)}let xt=F.encode([p,wt]),kt=G(xt,{dkLen:w}),L=J.encode([p,_,kt,z,N,dt]);return ut.clean(),P.clean(),rt(p,H,_,z,N,W,nt,dt,wt,kt,x),{publicKey:xt,secretKey:L}},sign:(f,x,l,p=!1)=>{let[H,_,P,z,N,W]=J.decode(f),dt=[],wt=a(H);for(let L=0;L<t;L++){let I=[];for(let Z=0;Z<n;Z++)I.push(Me(wt.get(Z,L)));dt.push(I)}wt.clean();for(let L=0;L<n;L++)Y.encode(z[L]);for(let L=0;L<t;L++)Y.encode(N[L]),Y.encode(W[L]);let ut=p?x:G.create({dkLen:h}).update(P).update(x).digest(),nt=l||new Uint8Array(32);D(nt);let xt=G.create({dkLen:h}).update(_).update(nt).update(ut).digest();D(xt,h);let kt=y(xt,S.bytesLen);t:for(let L=0;;){let I=[];for(let M=0;M<n;M++,L++)I.push(S.decode(kt.get(L&255,L>>8)()));let Z=I.map(M=>Y.encode(M.slice())),ct=[];for(let M=0;M<t;M++){let Xt=tt(O);for(let mt=0;mt<n;mt++)Vt(Xt,Ot(dt[M][mt],Z[mt]));Y.decode(Xt),ct.push(Xt)}let q=ct.map(M=>M.map(U)),St=G.create({dkLen:m}).update(ut).update($.encode(q)).digest(),oe=Y.encode(Pe(St)),se=z.map(M=>Ot(M,oe));for(let M=0;M<n;M++)if(Vt(Y.decode(se[M]),I[M]),Jt(se[M],o-A))continue t;let ve=0,we=[];for(let M=0;M<t;M++){let Xt=Y.decode(Ot(N[M],oe)),mt=Sn(ct[M],Xt).map(d);if(Jt(mt,s-A))continue t;let Ve=Y.decode(Ot(W[M],oe));if(Jt(Ve,s))continue t;Vt(mt,Ve);let Xe=Mn(mt,q[M]);we.push(Xe.v),ve+=Xe.cnt}if(ve>i)continue;kt.clean();let Fn=et.encode([St,se,we]);return rt(St,se,we,oe,q,ct,Z,I,xt,ut,z,N,W,...dt),Fn}throw new Error("Unreachable code path reached, report this error")},verify:(f,x,l,p=!1)=>{let[H,_]=F.decode(f),P=G(f,{dkLen:w});if(l.length!==et.bytesLen)return!1;let[z,N,W]=et.decode(l);if(W===!1)return!1;for(let L=0;L<n;L++)if(Jt(N[L],o-A))return!1;let dt=p?x:G.create({dkLen:h}).update(P).update(x).digest(),wt=Y.encode(Pe(z)),ut=N.map(L=>L.slice());for(let L=0;L<n;L++)Y.encode(ut[L]);let nt=[],xt=a(H);for(let L=0;L<t;L++){let I=Ot(Y.encode(ro(_[L])),wt),Z=tt(O);for(let q=0;q<n;q++){let St=Me(xt.get(q,L));Vt(Z,Ot(St,ut[q]))}let ct=Y.decode(Sn(Z,I));nt.push(In(ct,W[L]))}xt.clean();let kt=G.create({dkLen:m}).update(dt).update($.encode(nt)).digest();for(let L of W)if(!(L.reduce((Z,ct)=>Z+ct,0)<=i))return!1;for(let L of N)if(Jt(L,o-A))return!1;return qt(z,kt)}};return{internal:_t,keygen:_t.keygen,signRandBytes:_t.signRandBytes,sign:(f,x,l=Mt,p)=>{let H=Ue(x,l),_=_t.sign(f,H,p);return H.fill(0),_},verify:(f,x,l,p=Mt)=>_t.verify(f,Ue(x,p),l),prehash:f=>({sign:(x,l,p=Mt,H)=>{let _=Ie(f,l,p),P=_t.sign(x,_,H);return _.fill(0),P},verify:(x,l,p,H=Mt)=>_t.verify(x,Ie(f,l,H),p)})}}var Ro=Ge({...Ke[2],CRH_BYTES:64,TR_BYTES:64,C_TILDE_BYTES:32,XOF128:vt,XOF256:ye}),co=Ge({...Ke[3],CRH_BYTES:64,TR_BYTES:64,C_TILDE_BYTES:48,XOF128:vt,XOF256:ye}),jo=Ge({...Ke[5],CRH_BYTES:64,TR_BYTES:64,C_TILDE_BYTES:64,XOF128:vt,XOF256:ye});var X=256,At=3329,io=3303,fo=17,{mod:ne,nttZetas:ao,NTT:Gt,bitsCoder:ho}=be({N:X,Q:At,F:io,ROOT_OF_UNITY:fo,newPoly:e=>new Uint16Array(e),brvBits:7,isKyber:!0}),De={512:{N:X,Q:At,K:2,ETA1:3,ETA2:2,du:10,dv:4,RBGstrength:128},768:{N:X,Q:At,K:3,ETA1:2,ETA2:2,du:10,dv:4,RBGstrength:192},1024:{N:X,Q:At,K:4,ETA1:2,ETA2:2,du:11,dv:5,RBGstrength:256}},lo=e=>{if(e>=12)return{encode:n=>n,decode:n=>n};let t=2**(e-1);return{encode:n=>((n<<e)+At/2)/At,decode:n=>n*At+t>>>e}},te=e=>ho(e,lo(e));function Dt(e,t){for(let n=0;n<X;n++)e[n]=ne(e[n]+t[n])}function uo(e,t){for(let n=0;n<X;n++)e[n]=ne(e[n]-t[n])}function xo(e,t,n,o,s){let r=ne(t*o*s+e*n),c=ne(e*o+t*n);return{c0:r,c1:c}}function Ae(e,t){for(let n=0;n<X/2;n++){let o=ao[64+(n>>1)];n&1&&(o=-o);let{c0:s,c1:r}=xo(e[2*n+0],e[2*n+1],t[2*n+0],t[2*n+1],o);e[2*n+0]=s,e[2*n+1]=r}return e}function Cn(e){let t=new Uint16Array(X);for(let n=0;n<X;){let o=e();if(o.length%3)throw new Error("SampleNTT: unaligned block");for(let s=0;n<X&&s+3<=o.length;s+=3){let r=(o[s+0]>>0|o[s+1]<<8)&4095,c=(o[s+1]>>4|o[s+2]<<4)&4095;r<At&&(t[n++]=r),n<X&&c<At&&(t[n++]=c)}}return t}function ee(e,t,n,o){let s=e(o*X/4,t,n),r=new Uint16Array(X),c=fe(s),i=0;for(let h=0,w=0,m=0,a=0;h<c.length;h++){let y=c[h];for(let A=0;A<32;A++)m+=y&1,y>>=1,i+=1,i===o?(a=m,m=0):i===2*o&&(r[w++]=ne(a-m),m=0,i=0)}if(i)throw new Error(`sampleCBD: leftover bits: ${i}`);return r}var po=e=>{let{K:t,PRF:n,XOF:o,HASH512:s,ETA1:r,ETA2:c,du:i,dv:h}=e,w=te(1),m=te(h),a=te(i),y=ht(st(te(12),t),32),A=st(te(12),t),k=ht(st(a,t),m),U=ht(32,32);return{secretCoder:A,secretKeyLen:A.bytesLen,publicKeyLen:y.bytesLen,cipherTextLen:k.bytesLen,keygen:d=>{D(d,32);let B=new Uint8Array(33);B.set(d),B[32]=t;let g=s(B),[u,T]=U.decode(g),b=[],E=[];for(let C=0;C<t;C++)b.push(Gt.encode(ee(n,T,C,r)));let K=o(u);for(let C=0;C<t;C++){let $=Gt.encode(ee(n,T,t+C,r));for(let F=0;F<t;F++){let J=Cn(K.get(F,C));Dt($,Ae(J,b[F]))}E.push($)}K.clean();let S={publicKey:y.encode([E,u]),secretKey:A.encode(b)};return rt(u,T,b,E,B,g),S},encrypt:(d,B,g)=>{let[u,T]=y.decode(d),b=[];for(let F=0;F<t;F++)b.push(Gt.encode(ee(n,g,F,r)));let E=o(T),K=new Uint16Array(X),S=[];for(let F=0;F<t;F++){let J=ee(n,g,t+F,c),et=new Uint16Array(X);for(let lt=0;lt<t;lt++){let Tt=Cn(E.get(F,lt));Dt(et,Ae(Tt,b[lt]))}Dt(J,Gt.decode(et)),S.push(J),Dt(K,Ae(u[F],b[F])),et.fill(0)}E.clean();let C=ee(n,g,2*t,c);Dt(C,Gt.decode(K));let $=w.decode(B);return Dt($,C),rt(u,b,K,C),k.encode([S,$])},decrypt:(d,B)=>{let[g,u]=k.decode(d),T=A.decode(B),b=new Uint16Array(X);for(let E=0;E<t;E++)Dt(b,Ae(T[E],Gt.encode(g[E])));return uo(u,Gt.decode(b)),rt(b,T,g),w.encode(u)}}};function Re(e){let t=po(e),{HASH256:n,HASH512:o,KDF:s}=e,{secretCoder:r,cipherTextLen:c}=t,i=t.publicKeyLen,h=ht(t.secretKeyLen,t.publicKeyLen,32,32),w=h.bytesLen,m=32;return{publicKeyLen:i,msgLen:m,keygen:(a=Zt(64))=>{D(a,64);let{publicKey:y,secretKey:A}=t.keygen(a.subarray(0,32)),k=n(y),U=h.encode([A,y,k,a.subarray(32)]);return rt(A,k),{publicKey:y,secretKey:U}},encapsulate:(a,y=Zt(32))=>{D(a,i),D(y,m);let A=a.subarray(0,384*e.K),k=r.encode(r.decode(A.slice()));if(!qt(k,A))throw rt(k),new Error("ML-KEM.encapsulate: wrong publicKey modulus");rt(k);let U=o.create().update(y).update(n(a)).digest(),d=t.encrypt(a,y,U.subarray(32,64));return U.subarray(32).fill(0),{cipherText:d,sharedSecret:U.subarray(0,32)}},decapsulate:(a,y)=>{D(y,w),D(a,c);let[A,k,U,d]=h.decode(y),B=t.decrypt(a,A),g=o.create().update(B).update(U).digest(),u=g.subarray(0,32),T=t.encrypt(k,B,g.subarray(32,64)),b=qt(a,T),E=s.create({dkLen:32}).update(d).update(a).digest();return rt(B,T,b?E:u),b?u:E}}}function bo(e,t,n){return G.create({dkLen:e}).update(t).update(new Uint8Array([n])).digest()}var je={HASH256:de,HASH512:ue,KDF:G,XOF:vt,PRF:bo},zo=Re({...je,...De[512]}),yo=Re({...je,...De[768]}),$o=Re({...je,...De[1024]});export{co as ml_dsa65,yo as ml_kem768};
+(() => {
+  // node_modules/@noble/post-quantum/node_modules/@noble/hashes/esm/_u64.js
+  var U32_MASK64 = /* @__PURE__ */ BigInt(2 ** 32 - 1);
+  var _32n = /* @__PURE__ */ BigInt(32);
+  function fromBig(n, le = false) {
+    if (le)
+      return { h: Number(n & U32_MASK64), l: Number(n >> _32n & U32_MASK64) };
+    return { h: Number(n >> _32n & U32_MASK64) | 0, l: Number(n & U32_MASK64) | 0 };
+  }
+  function split(lst, le = false) {
+    const len = lst.length;
+    let Ah = new Uint32Array(len);
+    let Al = new Uint32Array(len);
+    for (let i = 0; i < len; i++) {
+      const { h, l } = fromBig(lst[i], le);
+      [Ah[i], Al[i]] = [h, l];
+    }
+    return [Ah, Al];
+  }
+  var shrSH = (h, _l, s) => h >>> s;
+  var shrSL = (h, l, s) => h << 32 - s | l >>> s;
+  var rotrSH = (h, l, s) => h >>> s | l << 32 - s;
+  var rotrSL = (h, l, s) => h << 32 - s | l >>> s;
+  var rotrBH = (h, l, s) => h << 64 - s | l >>> s - 32;
+  var rotrBL = (h, l, s) => h >>> s - 32 | l << 64 - s;
+  var rotlSH = (h, l, s) => h << s | l >>> 32 - s;
+  var rotlSL = (h, l, s) => l << s | h >>> 32 - s;
+  var rotlBH = (h, l, s) => l << s - 32 | h >>> 64 - s;
+  var rotlBL = (h, l, s) => h << s - 32 | l >>> 64 - s;
+  function add(Ah, Al, Bh, Bl) {
+    const l = (Al >>> 0) + (Bl >>> 0);
+    return { h: Ah + Bh + (l / 2 ** 32 | 0) | 0, l: l | 0 };
+  }
+  var add3L = (Al, Bl, Cl) => (Al >>> 0) + (Bl >>> 0) + (Cl >>> 0);
+  var add3H = (low, Ah, Bh, Ch) => Ah + Bh + Ch + (low / 2 ** 32 | 0) | 0;
+  var add4L = (Al, Bl, Cl, Dl) => (Al >>> 0) + (Bl >>> 0) + (Cl >>> 0) + (Dl >>> 0);
+  var add4H = (low, Ah, Bh, Ch, Dh) => Ah + Bh + Ch + Dh + (low / 2 ** 32 | 0) | 0;
+  var add5L = (Al, Bl, Cl, Dl, El) => (Al >>> 0) + (Bl >>> 0) + (Cl >>> 0) + (Dl >>> 0) + (El >>> 0);
+  var add5H = (low, Ah, Bh, Ch, Dh, Eh) => Ah + Bh + Ch + Dh + Eh + (low / 2 ** 32 | 0) | 0;
+
+  // node_modules/@noble/post-quantum/node_modules/@noble/hashes/esm/crypto.js
+  var crypto = typeof globalThis === "object" && "crypto" in globalThis ? globalThis.crypto : void 0;
+
+  // node_modules/@noble/post-quantum/node_modules/@noble/hashes/esm/utils.js
+  function isBytes(a) {
+    return a instanceof Uint8Array || ArrayBuffer.isView(a) && a.constructor.name === "Uint8Array";
+  }
+  function anumber(n) {
+    if (!Number.isSafeInteger(n) || n < 0)
+      throw new Error("positive integer expected, got " + n);
+  }
+  function abytes(b, ...lengths) {
+    if (!isBytes(b))
+      throw new Error("Uint8Array expected");
+    if (lengths.length > 0 && !lengths.includes(b.length))
+      throw new Error("Uint8Array expected of length " + lengths + ", got length=" + b.length);
+  }
+  function aexists(instance, checkFinished = true) {
+    if (instance.destroyed)
+      throw new Error("Hash instance has been destroyed");
+    if (checkFinished && instance.finished)
+      throw new Error("Hash#digest() has already been called");
+  }
+  function aoutput(out, instance) {
+    abytes(out);
+    const min = instance.outputLen;
+    if (out.length < min) {
+      throw new Error("digestInto() expects output buffer of length at least " + min);
+    }
+  }
+  function u32(arr) {
+    return new Uint32Array(arr.buffer, arr.byteOffset, Math.floor(arr.byteLength / 4));
+  }
+  function clean(...arrays) {
+    for (let i = 0; i < arrays.length; i++) {
+      arrays[i].fill(0);
+    }
+  }
+  function createView(arr) {
+    return new DataView(arr.buffer, arr.byteOffset, arr.byteLength);
+  }
+  function rotr(word, shift) {
+    return word << 32 - shift | word >>> shift;
+  }
+  var isLE = /* @__PURE__ */ (() => new Uint8Array(new Uint32Array([287454020]).buffer)[0] === 68)();
+  function byteSwap(word) {
+    return word << 24 & 4278190080 | word << 8 & 16711680 | word >>> 8 & 65280 | word >>> 24 & 255;
+  }
+  function byteSwap32(arr) {
+    for (let i = 0; i < arr.length; i++) {
+      arr[i] = byteSwap(arr[i]);
+    }
+    return arr;
+  }
+  var swap32IfBE = isLE ? (u) => u : byteSwap32;
+  var hasHexBuiltin = /* @__PURE__ */ (() => (
+    // @ts-ignore
+    typeof Uint8Array.from([]).toHex === "function" && typeof Uint8Array.fromHex === "function"
+  ))();
+  var asciis = { _0: 48, _9: 57, A: 65, F: 70, a: 97, f: 102 };
+  function asciiToBase16(ch) {
+    if (ch >= asciis._0 && ch <= asciis._9)
+      return ch - asciis._0;
+    if (ch >= asciis.A && ch <= asciis.F)
+      return ch - (asciis.A - 10);
+    if (ch >= asciis.a && ch <= asciis.f)
+      return ch - (asciis.a - 10);
+    return;
+  }
+  function hexToBytes(hex) {
+    if (typeof hex !== "string")
+      throw new Error("hex string expected, got " + typeof hex);
+    if (hasHexBuiltin)
+      return Uint8Array.fromHex(hex);
+    const hl = hex.length;
+    const al = hl / 2;
+    if (hl % 2)
+      throw new Error("hex string expected, got unpadded hex of length " + hl);
+    const array = new Uint8Array(al);
+    for (let ai = 0, hi = 0; ai < al; ai++, hi += 2) {
+      const n1 = asciiToBase16(hex.charCodeAt(hi));
+      const n2 = asciiToBase16(hex.charCodeAt(hi + 1));
+      if (n1 === void 0 || n2 === void 0) {
+        const char = hex[hi] + hex[hi + 1];
+        throw new Error('hex string expected, got non-hex character "' + char + '" at index ' + hi);
+      }
+      array[ai] = n1 * 16 + n2;
+    }
+    return array;
+  }
+  function utf8ToBytes(str) {
+    if (typeof str !== "string")
+      throw new Error("string expected");
+    return new Uint8Array(new TextEncoder().encode(str));
+  }
+  function toBytes(data) {
+    if (typeof data === "string")
+      data = utf8ToBytes(data);
+    abytes(data);
+    return data;
+  }
+  function concatBytes(...arrays) {
+    let sum = 0;
+    for (let i = 0; i < arrays.length; i++) {
+      const a = arrays[i];
+      abytes(a);
+      sum += a.length;
+    }
+    const res = new Uint8Array(sum);
+    for (let i = 0, pad = 0; i < arrays.length; i++) {
+      const a = arrays[i];
+      res.set(a, pad);
+      pad += a.length;
+    }
+    return res;
+  }
+  var Hash = class {
+  };
+  function createHasher(hashCons) {
+    const hashC = (msg) => hashCons().update(toBytes(msg)).digest();
+    const tmp = hashCons();
+    hashC.outputLen = tmp.outputLen;
+    hashC.blockLen = tmp.blockLen;
+    hashC.create = () => hashCons();
+    return hashC;
+  }
+  function createXOFer(hashCons) {
+    const hashC = (msg, opts2) => hashCons(opts2).update(toBytes(msg)).digest();
+    const tmp = hashCons({});
+    hashC.outputLen = tmp.outputLen;
+    hashC.blockLen = tmp.blockLen;
+    hashC.create = (opts2) => hashCons(opts2);
+    return hashC;
+  }
+  function randomBytes(bytesLength = 32) {
+    if (crypto && typeof crypto.getRandomValues === "function") {
+      return crypto.getRandomValues(new Uint8Array(bytesLength));
+    }
+    if (crypto && typeof crypto.randomBytes === "function") {
+      return Uint8Array.from(crypto.randomBytes(bytesLength));
+    }
+    throw new Error("crypto.getRandomValues must be defined");
+  }
+
+  // node_modules/@noble/post-quantum/node_modules/@noble/hashes/esm/sha3.js
+  var _0n = BigInt(0);
+  var _1n = BigInt(1);
+  var _2n = BigInt(2);
+  var _7n = BigInt(7);
+  var _256n = BigInt(256);
+  var _0x71n = BigInt(113);
+  var SHA3_PI = [];
+  var SHA3_ROTL = [];
+  var _SHA3_IOTA = [];
+  for (let round = 0, R = _1n, x = 1, y = 0; round < 24; round++) {
+    [x, y] = [y, (2 * x + 3 * y) % 5];
+    SHA3_PI.push(2 * (5 * y + x));
+    SHA3_ROTL.push((round + 1) * (round + 2) / 2 % 64);
+    let t = _0n;
+    for (let j = 0; j < 7; j++) {
+      R = (R << _1n ^ (R >> _7n) * _0x71n) % _256n;
+      if (R & _2n)
+        t ^= _1n << (_1n << /* @__PURE__ */ BigInt(j)) - _1n;
+    }
+    _SHA3_IOTA.push(t);
+  }
+  var IOTAS = split(_SHA3_IOTA, true);
+  var SHA3_IOTA_H = IOTAS[0];
+  var SHA3_IOTA_L = IOTAS[1];
+  var rotlH = (h, l, s) => s > 32 ? rotlBH(h, l, s) : rotlSH(h, l, s);
+  var rotlL = (h, l, s) => s > 32 ? rotlBL(h, l, s) : rotlSL(h, l, s);
+  function keccakP(s, rounds = 24) {
+    const B = new Uint32Array(5 * 2);
+    for (let round = 24 - rounds; round < 24; round++) {
+      for (let x = 0; x < 10; x++)
+        B[x] = s[x] ^ s[x + 10] ^ s[x + 20] ^ s[x + 30] ^ s[x + 40];
+      for (let x = 0; x < 10; x += 2) {
+        const idx1 = (x + 8) % 10;
+        const idx0 = (x + 2) % 10;
+        const B0 = B[idx0];
+        const B1 = B[idx0 + 1];
+        const Th = rotlH(B0, B1, 1) ^ B[idx1];
+        const Tl = rotlL(B0, B1, 1) ^ B[idx1 + 1];
+        for (let y = 0; y < 50; y += 10) {
+          s[x + y] ^= Th;
+          s[x + y + 1] ^= Tl;
+        }
+      }
+      let curH = s[2];
+      let curL = s[3];
+      for (let t = 0; t < 24; t++) {
+        const shift = SHA3_ROTL[t];
+        const Th = rotlH(curH, curL, shift);
+        const Tl = rotlL(curH, curL, shift);
+        const PI = SHA3_PI[t];
+        curH = s[PI];
+        curL = s[PI + 1];
+        s[PI] = Th;
+        s[PI + 1] = Tl;
+      }
+      for (let y = 0; y < 50; y += 10) {
+        for (let x = 0; x < 10; x++)
+          B[x] = s[y + x];
+        for (let x = 0; x < 10; x++)
+          s[y + x] ^= ~B[(x + 2) % 10] & B[(x + 4) % 10];
+      }
+      s[0] ^= SHA3_IOTA_H[round];
+      s[1] ^= SHA3_IOTA_L[round];
+    }
+    clean(B);
+  }
+  var Keccak = class _Keccak extends Hash {
+    // NOTE: we accept arguments in bytes instead of bits here.
+    constructor(blockLen, suffix, outputLen, enableXOF = false, rounds = 24) {
+      super();
+      this.pos = 0;
+      this.posOut = 0;
+      this.finished = false;
+      this.destroyed = false;
+      this.enableXOF = false;
+      this.blockLen = blockLen;
+      this.suffix = suffix;
+      this.outputLen = outputLen;
+      this.enableXOF = enableXOF;
+      this.rounds = rounds;
+      anumber(outputLen);
+      if (!(0 < blockLen && blockLen < 200))
+        throw new Error("only keccak-f1600 function is supported");
+      this.state = new Uint8Array(200);
+      this.state32 = u32(this.state);
+    }
+    clone() {
+      return this._cloneInto();
+    }
+    keccak() {
+      swap32IfBE(this.state32);
+      keccakP(this.state32, this.rounds);
+      swap32IfBE(this.state32);
+      this.posOut = 0;
+      this.pos = 0;
+    }
+    update(data) {
+      aexists(this);
+      data = toBytes(data);
+      abytes(data);
+      const { blockLen, state } = this;
+      const len = data.length;
+      for (let pos = 0; pos < len; ) {
+        const take = Math.min(blockLen - this.pos, len - pos);
+        for (let i = 0; i < take; i++)
+          state[this.pos++] ^= data[pos++];
+        if (this.pos === blockLen)
+          this.keccak();
+      }
+      return this;
+    }
+    finish() {
+      if (this.finished)
+        return;
+      this.finished = true;
+      const { state, suffix, pos, blockLen } = this;
+      state[pos] ^= suffix;
+      if ((suffix & 128) !== 0 && pos === blockLen - 1)
+        this.keccak();
+      state[blockLen - 1] ^= 128;
+      this.keccak();
+    }
+    writeInto(out) {
+      aexists(this, false);
+      abytes(out);
+      this.finish();
+      const bufferOut = this.state;
+      const { blockLen } = this;
+      for (let pos = 0, len = out.length; pos < len; ) {
+        if (this.posOut >= blockLen)
+          this.keccak();
+        const take = Math.min(blockLen - this.posOut, len - pos);
+        out.set(bufferOut.subarray(this.posOut, this.posOut + take), pos);
+        this.posOut += take;
+        pos += take;
+      }
+      return out;
+    }
+    xofInto(out) {
+      if (!this.enableXOF)
+        throw new Error("XOF is not possible for this instance");
+      return this.writeInto(out);
+    }
+    xof(bytes) {
+      anumber(bytes);
+      return this.xofInto(new Uint8Array(bytes));
+    }
+    digestInto(out) {
+      aoutput(out, this);
+      if (this.finished)
+        throw new Error("digest() was already called");
+      this.writeInto(out);
+      this.destroy();
+      return out;
+    }
+    digest() {
+      return this.digestInto(new Uint8Array(this.outputLen));
+    }
+    destroy() {
+      this.destroyed = true;
+      clean(this.state);
+    }
+    _cloneInto(to) {
+      const { blockLen, suffix, outputLen, rounds, enableXOF } = this;
+      to || (to = new _Keccak(blockLen, suffix, outputLen, enableXOF, rounds));
+      to.state32.set(this.state32);
+      to.pos = this.pos;
+      to.posOut = this.posOut;
+      to.finished = this.finished;
+      to.rounds = rounds;
+      to.suffix = suffix;
+      to.outputLen = outputLen;
+      to.enableXOF = enableXOF;
+      to.destroyed = this.destroyed;
+      return to;
+    }
+  };
+  var gen = (suffix, blockLen, outputLen) => createHasher(() => new Keccak(blockLen, suffix, outputLen));
+  var sha3_224 = /* @__PURE__ */ (() => gen(6, 144, 224 / 8))();
+  var sha3_256 = /* @__PURE__ */ (() => gen(6, 136, 256 / 8))();
+  var sha3_384 = /* @__PURE__ */ (() => gen(6, 104, 384 / 8))();
+  var sha3_512 = /* @__PURE__ */ (() => gen(6, 72, 512 / 8))();
+  var genShake = (suffix, blockLen, outputLen) => createXOFer((opts2 = {}) => new Keccak(blockLen, suffix, opts2.dkLen === void 0 ? outputLen : opts2.dkLen, true));
+  var shake128 = /* @__PURE__ */ (() => genShake(31, 168, 128 / 8))();
+  var shake256 = /* @__PURE__ */ (() => genShake(31, 136, 256 / 8))();
+
+  // node_modules/@noble/post-quantum/node_modules/@noble/hashes/esm/_md.js
+  function setBigUint64(view, byteOffset, value, isLE2) {
+    if (typeof view.setBigUint64 === "function")
+      return view.setBigUint64(byteOffset, value, isLE2);
+    const _32n2 = BigInt(32);
+    const _u32_max = BigInt(4294967295);
+    const wh = Number(value >> _32n2 & _u32_max);
+    const wl = Number(value & _u32_max);
+    const h = isLE2 ? 4 : 0;
+    const l = isLE2 ? 0 : 4;
+    view.setUint32(byteOffset + h, wh, isLE2);
+    view.setUint32(byteOffset + l, wl, isLE2);
+  }
+  function Chi(a, b, c) {
+    return a & b ^ ~a & c;
+  }
+  function Maj(a, b, c) {
+    return a & b ^ a & c ^ b & c;
+  }
+  var HashMD = class extends Hash {
+    constructor(blockLen, outputLen, padOffset, isLE2) {
+      super();
+      this.finished = false;
+      this.length = 0;
+      this.pos = 0;
+      this.destroyed = false;
+      this.blockLen = blockLen;
+      this.outputLen = outputLen;
+      this.padOffset = padOffset;
+      this.isLE = isLE2;
+      this.buffer = new Uint8Array(blockLen);
+      this.view = createView(this.buffer);
+    }
+    update(data) {
+      aexists(this);
+      data = toBytes(data);
+      abytes(data);
+      const { view, buffer, blockLen } = this;
+      const len = data.length;
+      for (let pos = 0; pos < len; ) {
+        const take = Math.min(blockLen - this.pos, len - pos);
+        if (take === blockLen) {
+          const dataView = createView(data);
+          for (; blockLen <= len - pos; pos += blockLen)
+            this.process(dataView, pos);
+          continue;
+        }
+        buffer.set(data.subarray(pos, pos + take), this.pos);
+        this.pos += take;
+        pos += take;
+        if (this.pos === blockLen) {
+          this.process(view, 0);
+          this.pos = 0;
+        }
+      }
+      this.length += data.length;
+      this.roundClean();
+      return this;
+    }
+    digestInto(out) {
+      aexists(this);
+      aoutput(out, this);
+      this.finished = true;
+      const { buffer, view, blockLen, isLE: isLE2 } = this;
+      let { pos } = this;
+      buffer[pos++] = 128;
+      clean(this.buffer.subarray(pos));
+      if (this.padOffset > blockLen - pos) {
+        this.process(view, 0);
+        pos = 0;
+      }
+      for (let i = pos; i < blockLen; i++)
+        buffer[i] = 0;
+      setBigUint64(view, blockLen - 8, BigInt(this.length * 8), isLE2);
+      this.process(view, 0);
+      const oview = createView(out);
+      const len = this.outputLen;
+      if (len % 4)
+        throw new Error("_sha2: outputLen should be aligned to 32bit");
+      const outLen = len / 4;
+      const state = this.get();
+      if (outLen > state.length)
+        throw new Error("_sha2: outputLen bigger than state");
+      for (let i = 0; i < outLen; i++)
+        oview.setUint32(4 * i, state[i], isLE2);
+    }
+    digest() {
+      const { buffer, outputLen } = this;
+      this.digestInto(buffer);
+      const res = buffer.slice(0, outputLen);
+      this.destroy();
+      return res;
+    }
+    _cloneInto(to) {
+      to || (to = new this.constructor());
+      to.set(...this.get());
+      const { blockLen, buffer, length, finished, destroyed, pos } = this;
+      to.destroyed = destroyed;
+      to.finished = finished;
+      to.length = length;
+      to.pos = pos;
+      if (length % blockLen)
+        to.buffer.set(buffer);
+      return to;
+    }
+    clone() {
+      return this._cloneInto();
+    }
+  };
+  var SHA256_IV = /* @__PURE__ */ Uint32Array.from([
+    1779033703,
+    3144134277,
+    1013904242,
+    2773480762,
+    1359893119,
+    2600822924,
+    528734635,
+    1541459225
+  ]);
+  var SHA224_IV = /* @__PURE__ */ Uint32Array.from([
+    3238371032,
+    914150663,
+    812702999,
+    4144912697,
+    4290775857,
+    1750603025,
+    1694076839,
+    3204075428
+  ]);
+  var SHA384_IV = /* @__PURE__ */ Uint32Array.from([
+    3418070365,
+    3238371032,
+    1654270250,
+    914150663,
+    2438529370,
+    812702999,
+    355462360,
+    4144912697,
+    1731405415,
+    4290775857,
+    2394180231,
+    1750603025,
+    3675008525,
+    1694076839,
+    1203062813,
+    3204075428
+  ]);
+  var SHA512_IV = /* @__PURE__ */ Uint32Array.from([
+    1779033703,
+    4089235720,
+    3144134277,
+    2227873595,
+    1013904242,
+    4271175723,
+    2773480762,
+    1595750129,
+    1359893119,
+    2917565137,
+    2600822924,
+    725511199,
+    528734635,
+    4215389547,
+    1541459225,
+    327033209
+  ]);
+
+  // node_modules/@noble/post-quantum/node_modules/@noble/hashes/esm/sha2.js
+  var SHA256_K = /* @__PURE__ */ Uint32Array.from([
+    1116352408,
+    1899447441,
+    3049323471,
+    3921009573,
+    961987163,
+    1508970993,
+    2453635748,
+    2870763221,
+    3624381080,
+    310598401,
+    607225278,
+    1426881987,
+    1925078388,
+    2162078206,
+    2614888103,
+    3248222580,
+    3835390401,
+    4022224774,
+    264347078,
+    604807628,
+    770255983,
+    1249150122,
+    1555081692,
+    1996064986,
+    2554220882,
+    2821834349,
+    2952996808,
+    3210313671,
+    3336571891,
+    3584528711,
+    113926993,
+    338241895,
+    666307205,
+    773529912,
+    1294757372,
+    1396182291,
+    1695183700,
+    1986661051,
+    2177026350,
+    2456956037,
+    2730485921,
+    2820302411,
+    3259730800,
+    3345764771,
+    3516065817,
+    3600352804,
+    4094571909,
+    275423344,
+    430227734,
+    506948616,
+    659060556,
+    883997877,
+    958139571,
+    1322822218,
+    1537002063,
+    1747873779,
+    1955562222,
+    2024104815,
+    2227730452,
+    2361852424,
+    2428436474,
+    2756734187,
+    3204031479,
+    3329325298
+  ]);
+  var SHA256_W = /* @__PURE__ */ new Uint32Array(64);
+  var SHA256 = class extends HashMD {
+    constructor(outputLen = 32) {
+      super(64, outputLen, 8, false);
+      this.A = SHA256_IV[0] | 0;
+      this.B = SHA256_IV[1] | 0;
+      this.C = SHA256_IV[2] | 0;
+      this.D = SHA256_IV[3] | 0;
+      this.E = SHA256_IV[4] | 0;
+      this.F = SHA256_IV[5] | 0;
+      this.G = SHA256_IV[6] | 0;
+      this.H = SHA256_IV[7] | 0;
+    }
+    get() {
+      const { A, B, C, D: D2, E, F: F3, G, H } = this;
+      return [A, B, C, D2, E, F3, G, H];
+    }
+    // prettier-ignore
+    set(A, B, C, D2, E, F3, G, H) {
+      this.A = A | 0;
+      this.B = B | 0;
+      this.C = C | 0;
+      this.D = D2 | 0;
+      this.E = E | 0;
+      this.F = F3 | 0;
+      this.G = G | 0;
+      this.H = H | 0;
+    }
+    process(view, offset) {
+      for (let i = 0; i < 16; i++, offset += 4)
+        SHA256_W[i] = view.getUint32(offset, false);
+      for (let i = 16; i < 64; i++) {
+        const W15 = SHA256_W[i - 15];
+        const W2 = SHA256_W[i - 2];
+        const s0 = rotr(W15, 7) ^ rotr(W15, 18) ^ W15 >>> 3;
+        const s1 = rotr(W2, 17) ^ rotr(W2, 19) ^ W2 >>> 10;
+        SHA256_W[i] = s1 + SHA256_W[i - 7] + s0 + SHA256_W[i - 16] | 0;
+      }
+      let { A, B, C, D: D2, E, F: F3, G, H } = this;
+      for (let i = 0; i < 64; i++) {
+        const sigma1 = rotr(E, 6) ^ rotr(E, 11) ^ rotr(E, 25);
+        const T1 = H + sigma1 + Chi(E, F3, G) + SHA256_K[i] + SHA256_W[i] | 0;
+        const sigma0 = rotr(A, 2) ^ rotr(A, 13) ^ rotr(A, 22);
+        const T2 = sigma0 + Maj(A, B, C) | 0;
+        H = G;
+        G = F3;
+        F3 = E;
+        E = D2 + T1 | 0;
+        D2 = C;
+        C = B;
+        B = A;
+        A = T1 + T2 | 0;
+      }
+      A = A + this.A | 0;
+      B = B + this.B | 0;
+      C = C + this.C | 0;
+      D2 = D2 + this.D | 0;
+      E = E + this.E | 0;
+      F3 = F3 + this.F | 0;
+      G = G + this.G | 0;
+      H = H + this.H | 0;
+      this.set(A, B, C, D2, E, F3, G, H);
+    }
+    roundClean() {
+      clean(SHA256_W);
+    }
+    destroy() {
+      this.set(0, 0, 0, 0, 0, 0, 0, 0);
+      clean(this.buffer);
+    }
+  };
+  var SHA224 = class extends SHA256 {
+    constructor() {
+      super(28);
+      this.A = SHA224_IV[0] | 0;
+      this.B = SHA224_IV[1] | 0;
+      this.C = SHA224_IV[2] | 0;
+      this.D = SHA224_IV[3] | 0;
+      this.E = SHA224_IV[4] | 0;
+      this.F = SHA224_IV[5] | 0;
+      this.G = SHA224_IV[6] | 0;
+      this.H = SHA224_IV[7] | 0;
+    }
+  };
+  var K512 = /* @__PURE__ */ (() => split([
+    "0x428a2f98d728ae22",
+    "0x7137449123ef65cd",
+    "0xb5c0fbcfec4d3b2f",
+    "0xe9b5dba58189dbbc",
+    "0x3956c25bf348b538",
+    "0x59f111f1b605d019",
+    "0x923f82a4af194f9b",
+    "0xab1c5ed5da6d8118",
+    "0xd807aa98a3030242",
+    "0x12835b0145706fbe",
+    "0x243185be4ee4b28c",
+    "0x550c7dc3d5ffb4e2",
+    "0x72be5d74f27b896f",
+    "0x80deb1fe3b1696b1",
+    "0x9bdc06a725c71235",
+    "0xc19bf174cf692694",
+    "0xe49b69c19ef14ad2",
+    "0xefbe4786384f25e3",
+    "0x0fc19dc68b8cd5b5",
+    "0x240ca1cc77ac9c65",
+    "0x2de92c6f592b0275",
+    "0x4a7484aa6ea6e483",
+    "0x5cb0a9dcbd41fbd4",
+    "0x76f988da831153b5",
+    "0x983e5152ee66dfab",
+    "0xa831c66d2db43210",
+    "0xb00327c898fb213f",
+    "0xbf597fc7beef0ee4",
+    "0xc6e00bf33da88fc2",
+    "0xd5a79147930aa725",
+    "0x06ca6351e003826f",
+    "0x142929670a0e6e70",
+    "0x27b70a8546d22ffc",
+    "0x2e1b21385c26c926",
+    "0x4d2c6dfc5ac42aed",
+    "0x53380d139d95b3df",
+    "0x650a73548baf63de",
+    "0x766a0abb3c77b2a8",
+    "0x81c2c92e47edaee6",
+    "0x92722c851482353b",
+    "0xa2bfe8a14cf10364",
+    "0xa81a664bbc423001",
+    "0xc24b8b70d0f89791",
+    "0xc76c51a30654be30",
+    "0xd192e819d6ef5218",
+    "0xd69906245565a910",
+    "0xf40e35855771202a",
+    "0x106aa07032bbd1b8",
+    "0x19a4c116b8d2d0c8",
+    "0x1e376c085141ab53",
+    "0x2748774cdf8eeb99",
+    "0x34b0bcb5e19b48a8",
+    "0x391c0cb3c5c95a63",
+    "0x4ed8aa4ae3418acb",
+    "0x5b9cca4f7763e373",
+    "0x682e6ff3d6b2b8a3",
+    "0x748f82ee5defb2fc",
+    "0x78a5636f43172f60",
+    "0x84c87814a1f0ab72",
+    "0x8cc702081a6439ec",
+    "0x90befffa23631e28",
+    "0xa4506cebde82bde9",
+    "0xbef9a3f7b2c67915",
+    "0xc67178f2e372532b",
+    "0xca273eceea26619c",
+    "0xd186b8c721c0c207",
+    "0xeada7dd6cde0eb1e",
+    "0xf57d4f7fee6ed178",
+    "0x06f067aa72176fba",
+    "0x0a637dc5a2c898a6",
+    "0x113f9804bef90dae",
+    "0x1b710b35131c471b",
+    "0x28db77f523047d84",
+    "0x32caab7b40c72493",
+    "0x3c9ebe0a15c9bebc",
+    "0x431d67c49c100d4c",
+    "0x4cc5d4becb3e42b6",
+    "0x597f299cfc657e2a",
+    "0x5fcb6fab3ad6faec",
+    "0x6c44198c4a475817"
+  ].map((n) => BigInt(n))))();
+  var SHA512_Kh = /* @__PURE__ */ (() => K512[0])();
+  var SHA512_Kl = /* @__PURE__ */ (() => K512[1])();
+  var SHA512_W_H = /* @__PURE__ */ new Uint32Array(80);
+  var SHA512_W_L = /* @__PURE__ */ new Uint32Array(80);
+  var SHA512 = class extends HashMD {
+    constructor(outputLen = 64) {
+      super(128, outputLen, 16, false);
+      this.Ah = SHA512_IV[0] | 0;
+      this.Al = SHA512_IV[1] | 0;
+      this.Bh = SHA512_IV[2] | 0;
+      this.Bl = SHA512_IV[3] | 0;
+      this.Ch = SHA512_IV[4] | 0;
+      this.Cl = SHA512_IV[5] | 0;
+      this.Dh = SHA512_IV[6] | 0;
+      this.Dl = SHA512_IV[7] | 0;
+      this.Eh = SHA512_IV[8] | 0;
+      this.El = SHA512_IV[9] | 0;
+      this.Fh = SHA512_IV[10] | 0;
+      this.Fl = SHA512_IV[11] | 0;
+      this.Gh = SHA512_IV[12] | 0;
+      this.Gl = SHA512_IV[13] | 0;
+      this.Hh = SHA512_IV[14] | 0;
+      this.Hl = SHA512_IV[15] | 0;
+    }
+    // prettier-ignore
+    get() {
+      const { Ah, Al, Bh, Bl, Ch, Cl, Dh, Dl, Eh, El, Fh, Fl, Gh, Gl, Hh, Hl } = this;
+      return [Ah, Al, Bh, Bl, Ch, Cl, Dh, Dl, Eh, El, Fh, Fl, Gh, Gl, Hh, Hl];
+    }
+    // prettier-ignore
+    set(Ah, Al, Bh, Bl, Ch, Cl, Dh, Dl, Eh, El, Fh, Fl, Gh, Gl, Hh, Hl) {
+      this.Ah = Ah | 0;
+      this.Al = Al | 0;
+      this.Bh = Bh | 0;
+      this.Bl = Bl | 0;
+      this.Ch = Ch | 0;
+      this.Cl = Cl | 0;
+      this.Dh = Dh | 0;
+      this.Dl = Dl | 0;
+      this.Eh = Eh | 0;
+      this.El = El | 0;
+      this.Fh = Fh | 0;
+      this.Fl = Fl | 0;
+      this.Gh = Gh | 0;
+      this.Gl = Gl | 0;
+      this.Hh = Hh | 0;
+      this.Hl = Hl | 0;
+    }
+    process(view, offset) {
+      for (let i = 0; i < 16; i++, offset += 4) {
+        SHA512_W_H[i] = view.getUint32(offset);
+        SHA512_W_L[i] = view.getUint32(offset += 4);
+      }
+      for (let i = 16; i < 80; i++) {
+        const W15h = SHA512_W_H[i - 15] | 0;
+        const W15l = SHA512_W_L[i - 15] | 0;
+        const s0h = rotrSH(W15h, W15l, 1) ^ rotrSH(W15h, W15l, 8) ^ shrSH(W15h, W15l, 7);
+        const s0l = rotrSL(W15h, W15l, 1) ^ rotrSL(W15h, W15l, 8) ^ shrSL(W15h, W15l, 7);
+        const W2h = SHA512_W_H[i - 2] | 0;
+        const W2l = SHA512_W_L[i - 2] | 0;
+        const s1h = rotrSH(W2h, W2l, 19) ^ rotrBH(W2h, W2l, 61) ^ shrSH(W2h, W2l, 6);
+        const s1l = rotrSL(W2h, W2l, 19) ^ rotrBL(W2h, W2l, 61) ^ shrSL(W2h, W2l, 6);
+        const SUMl = add4L(s0l, s1l, SHA512_W_L[i - 7], SHA512_W_L[i - 16]);
+        const SUMh = add4H(SUMl, s0h, s1h, SHA512_W_H[i - 7], SHA512_W_H[i - 16]);
+        SHA512_W_H[i] = SUMh | 0;
+        SHA512_W_L[i] = SUMl | 0;
+      }
+      let { Ah, Al, Bh, Bl, Ch, Cl, Dh, Dl, Eh, El, Fh, Fl, Gh, Gl, Hh, Hl } = this;
+      for (let i = 0; i < 80; i++) {
+        const sigma1h = rotrSH(Eh, El, 14) ^ rotrSH(Eh, El, 18) ^ rotrBH(Eh, El, 41);
+        const sigma1l = rotrSL(Eh, El, 14) ^ rotrSL(Eh, El, 18) ^ rotrBL(Eh, El, 41);
+        const CHIh = Eh & Fh ^ ~Eh & Gh;
+        const CHIl = El & Fl ^ ~El & Gl;
+        const T1ll = add5L(Hl, sigma1l, CHIl, SHA512_Kl[i], SHA512_W_L[i]);
+        const T1h = add5H(T1ll, Hh, sigma1h, CHIh, SHA512_Kh[i], SHA512_W_H[i]);
+        const T1l = T1ll | 0;
+        const sigma0h = rotrSH(Ah, Al, 28) ^ rotrBH(Ah, Al, 34) ^ rotrBH(Ah, Al, 39);
+        const sigma0l = rotrSL(Ah, Al, 28) ^ rotrBL(Ah, Al, 34) ^ rotrBL(Ah, Al, 39);
+        const MAJh = Ah & Bh ^ Ah & Ch ^ Bh & Ch;
+        const MAJl = Al & Bl ^ Al & Cl ^ Bl & Cl;
+        Hh = Gh | 0;
+        Hl = Gl | 0;
+        Gh = Fh | 0;
+        Gl = Fl | 0;
+        Fh = Eh | 0;
+        Fl = El | 0;
+        ({ h: Eh, l: El } = add(Dh | 0, Dl | 0, T1h | 0, T1l | 0));
+        Dh = Ch | 0;
+        Dl = Cl | 0;
+        Ch = Bh | 0;
+        Cl = Bl | 0;
+        Bh = Ah | 0;
+        Bl = Al | 0;
+        const All = add3L(T1l, sigma0l, MAJl);
+        Ah = add3H(All, T1h, sigma0h, MAJh);
+        Al = All | 0;
+      }
+      ({ h: Ah, l: Al } = add(this.Ah | 0, this.Al | 0, Ah | 0, Al | 0));
+      ({ h: Bh, l: Bl } = add(this.Bh | 0, this.Bl | 0, Bh | 0, Bl | 0));
+      ({ h: Ch, l: Cl } = add(this.Ch | 0, this.Cl | 0, Ch | 0, Cl | 0));
+      ({ h: Dh, l: Dl } = add(this.Dh | 0, this.Dl | 0, Dh | 0, Dl | 0));
+      ({ h: Eh, l: El } = add(this.Eh | 0, this.El | 0, Eh | 0, El | 0));
+      ({ h: Fh, l: Fl } = add(this.Fh | 0, this.Fl | 0, Fh | 0, Fl | 0));
+      ({ h: Gh, l: Gl } = add(this.Gh | 0, this.Gl | 0, Gh | 0, Gl | 0));
+      ({ h: Hh, l: Hl } = add(this.Hh | 0, this.Hl | 0, Hh | 0, Hl | 0));
+      this.set(Ah, Al, Bh, Bl, Ch, Cl, Dh, Dl, Eh, El, Fh, Fl, Gh, Gl, Hh, Hl);
+    }
+    roundClean() {
+      clean(SHA512_W_H, SHA512_W_L);
+    }
+    destroy() {
+      clean(this.buffer);
+      this.set(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+    }
+  };
+  var SHA384 = class extends SHA512 {
+    constructor() {
+      super(48);
+      this.Ah = SHA384_IV[0] | 0;
+      this.Al = SHA384_IV[1] | 0;
+      this.Bh = SHA384_IV[2] | 0;
+      this.Bl = SHA384_IV[3] | 0;
+      this.Ch = SHA384_IV[4] | 0;
+      this.Cl = SHA384_IV[5] | 0;
+      this.Dh = SHA384_IV[6] | 0;
+      this.Dl = SHA384_IV[7] | 0;
+      this.Eh = SHA384_IV[8] | 0;
+      this.El = SHA384_IV[9] | 0;
+      this.Fh = SHA384_IV[10] | 0;
+      this.Fl = SHA384_IV[11] | 0;
+      this.Gh = SHA384_IV[12] | 0;
+      this.Gl = SHA384_IV[13] | 0;
+      this.Hh = SHA384_IV[14] | 0;
+      this.Hl = SHA384_IV[15] | 0;
+    }
+  };
+  var T224_IV = /* @__PURE__ */ Uint32Array.from([
+    2352822216,
+    424955298,
+    1944164710,
+    2312950998,
+    502970286,
+    855612546,
+    1738396948,
+    1479516111,
+    258812777,
+    2077511080,
+    2011393907,
+    79989058,
+    1067287976,
+    1780299464,
+    286451373,
+    2446758561
+  ]);
+  var T256_IV = /* @__PURE__ */ Uint32Array.from([
+    573645204,
+    4230739756,
+    2673172387,
+    3360449730,
+    596883563,
+    1867755857,
+    2520282905,
+    1497426621,
+    2519219938,
+    2827943907,
+    3193839141,
+    1401305490,
+    721525244,
+    746961066,
+    246885852,
+    2177182882
+  ]);
+  var SHA512_224 = class extends SHA512 {
+    constructor() {
+      super(28);
+      this.Ah = T224_IV[0] | 0;
+      this.Al = T224_IV[1] | 0;
+      this.Bh = T224_IV[2] | 0;
+      this.Bl = T224_IV[3] | 0;
+      this.Ch = T224_IV[4] | 0;
+      this.Cl = T224_IV[5] | 0;
+      this.Dh = T224_IV[6] | 0;
+      this.Dl = T224_IV[7] | 0;
+      this.Eh = T224_IV[8] | 0;
+      this.El = T224_IV[9] | 0;
+      this.Fh = T224_IV[10] | 0;
+      this.Fl = T224_IV[11] | 0;
+      this.Gh = T224_IV[12] | 0;
+      this.Gl = T224_IV[13] | 0;
+      this.Hh = T224_IV[14] | 0;
+      this.Hl = T224_IV[15] | 0;
+    }
+  };
+  var SHA512_256 = class extends SHA512 {
+    constructor() {
+      super(32);
+      this.Ah = T256_IV[0] | 0;
+      this.Al = T256_IV[1] | 0;
+      this.Bh = T256_IV[2] | 0;
+      this.Bl = T256_IV[3] | 0;
+      this.Ch = T256_IV[4] | 0;
+      this.Cl = T256_IV[5] | 0;
+      this.Dh = T256_IV[6] | 0;
+      this.Dl = T256_IV[7] | 0;
+      this.Eh = T256_IV[8] | 0;
+      this.El = T256_IV[9] | 0;
+      this.Fh = T256_IV[10] | 0;
+      this.Fl = T256_IV[11] | 0;
+      this.Gh = T256_IV[12] | 0;
+      this.Gl = T256_IV[13] | 0;
+      this.Hh = T256_IV[14] | 0;
+      this.Hl = T256_IV[15] | 0;
+    }
+  };
+  var sha256 = /* @__PURE__ */ createHasher(() => new SHA256());
+  var sha224 = /* @__PURE__ */ createHasher(() => new SHA224());
+  var sha512 = /* @__PURE__ */ createHasher(() => new SHA512());
+  var sha384 = /* @__PURE__ */ createHasher(() => new SHA384());
+  var sha512_256 = /* @__PURE__ */ createHasher(() => new SHA512_256());
+  var sha512_224 = /* @__PURE__ */ createHasher(() => new SHA512_224());
+
+  // node_modules/@noble/post-quantum/esm/utils.js
+  var ensureBytes = abytes;
+  var randomBytes2 = randomBytes;
+  function equalBytes(a, b) {
+    if (a.length !== b.length)
+      return false;
+    let diff = 0;
+    for (let i = 0; i < a.length; i++)
+      diff |= a[i] ^ b[i];
+    return diff === 0;
+  }
+  function splitCoder(...lengths) {
+    const getLength = (c) => typeof c === "number" ? c : c.bytesLen;
+    const bytesLen = lengths.reduce((sum, a) => sum + getLength(a), 0);
+    return {
+      bytesLen,
+      encode: (bufs) => {
+        const res = new Uint8Array(bytesLen);
+        for (let i = 0, pos = 0; i < lengths.length; i++) {
+          const c = lengths[i];
+          const l = getLength(c);
+          const b = typeof c === "number" ? bufs[i] : c.encode(bufs[i]);
+          ensureBytes(b, l);
+          res.set(b, pos);
+          if (typeof c !== "number")
+            b.fill(0);
+          pos += l;
+        }
+        return res;
+      },
+      decode: (buf) => {
+        ensureBytes(buf, bytesLen);
+        const res = [];
+        for (const c of lengths) {
+          const l = getLength(c);
+          const b = buf.subarray(0, l);
+          res.push(typeof c === "number" ? b : c.decode(b));
+          buf = buf.subarray(l);
+        }
+        return res;
+      }
+    };
+  }
+  function vecCoder(c, vecLen) {
+    const bytesLen = vecLen * c.bytesLen;
+    return {
+      bytesLen,
+      encode: (u) => {
+        if (u.length !== vecLen)
+          throw new Error(`vecCoder.encode: wrong length=${u.length}. Expected: ${vecLen}`);
+        const res = new Uint8Array(bytesLen);
+        for (let i = 0, pos = 0; i < u.length; i++) {
+          const b = c.encode(u[i]);
+          res.set(b, pos);
+          b.fill(0);
+          pos += b.length;
+        }
+        return res;
+      },
+      decode: (a) => {
+        ensureBytes(a, bytesLen);
+        const r = [];
+        for (let i = 0; i < a.length; i += c.bytesLen)
+          r.push(c.decode(a.subarray(i, i + c.bytesLen)));
+        return r;
+      }
+    };
+  }
+  function cleanBytes(...list) {
+    for (const t of list) {
+      if (Array.isArray(t))
+        for (const b of t)
+          b.fill(0);
+      else
+        t.fill(0);
+    }
+  }
+  function getMask(bits) {
+    return (1 << bits) - 1;
+  }
+  var EMPTY = new Uint8Array(0);
+  function getMessage(msg, ctx = EMPTY) {
+    ensureBytes(msg);
+    ensureBytes(ctx);
+    if (ctx.length > 255)
+      throw new Error("context should be less than 255 bytes");
+    return concatBytes(new Uint8Array([0, ctx.length]), ctx, msg);
+  }
+  var HASHES = {
+    "SHA2-256": { oid: hexToBytes("0609608648016503040201"), hash: sha256 },
+    "SHA2-384": { oid: hexToBytes("0609608648016503040202"), hash: sha384 },
+    "SHA2-512": { oid: hexToBytes("0609608648016503040203"), hash: sha512 },
+    "SHA2-224": { oid: hexToBytes("0609608648016503040204"), hash: sha224 },
+    "SHA2-512/224": { oid: hexToBytes("0609608648016503040205"), hash: sha512_224 },
+    "SHA2-512/256": { oid: hexToBytes("0609608648016503040206"), hash: sha512_256 },
+    "SHA3-224": { oid: hexToBytes("0609608648016503040207"), hash: sha3_224 },
+    "SHA3-256": { oid: hexToBytes("0609608648016503040208"), hash: sha3_256 },
+    "SHA3-384": { oid: hexToBytes("0609608648016503040209"), hash: sha3_384 },
+    "SHA3-512": { oid: hexToBytes("060960864801650304020A"), hash: sha3_512 },
+    "SHAKE-128": {
+      oid: hexToBytes("060960864801650304020B"),
+      hash: (msg) => shake128(msg, { dkLen: 32 })
+    },
+    "SHAKE-256": {
+      oid: hexToBytes("060960864801650304020C"),
+      hash: (msg) => shake256(msg, { dkLen: 64 })
+    }
+  };
+  function getMessagePrehash(hashName, msg, ctx = EMPTY) {
+    ensureBytes(msg);
+    ensureBytes(ctx);
+    if (ctx.length > 255)
+      throw new Error("context should be less than 255 bytes");
+    if (!HASHES[hashName])
+      throw new Error("unknown hash: " + hashName);
+    const { oid, hash } = HASHES[hashName];
+    const hashed = hash(msg);
+    return concatBytes(new Uint8Array([1, ctx.length]), ctx, oid, hashed);
+  }
+
+  // node_modules/@noble/post-quantum/esm/_crystals.js
+  function bitReversal(n, bits = 8) {
+    const padded = n.toString(2).padStart(8, "0");
+    const sliced = padded.slice(-bits).padStart(7, "0");
+    const revrsd = sliced.split("").reverse().join("");
+    return Number.parseInt(revrsd, 2);
+  }
+  var genCrystals = (opts2) => {
+    const { newPoly: newPoly2, N: N3, Q: Q3, F: F3, ROOT_OF_UNITY: ROOT_OF_UNITY3, brvBits, isKyber } = opts2;
+    const mod3 = (a, modulo = Q3) => {
+      const result = a % modulo | 0;
+      return (result >= 0 ? result | 0 : modulo + result | 0) | 0;
+    };
+    const smod2 = (a, modulo = Q3) => {
+      const r = mod3(a, modulo) | 0;
+      return (r > modulo >> 1 ? r - modulo | 0 : r) | 0;
+    };
+    function getZettas() {
+      const out = newPoly2(N3);
+      for (let i = 0; i < N3; i++) {
+        const b = bitReversal(i, brvBits);
+        const p = BigInt(ROOT_OF_UNITY3) ** BigInt(b) % BigInt(Q3);
+        out[i] = Number(p) | 0;
+      }
+      return out;
+    }
+    const nttZetas2 = getZettas();
+    const LEN1 = isKyber ? 128 : N3;
+    const LEN2 = isKyber ? 1 : 0;
+    const NTT3 = {
+      encode: (r) => {
+        for (let k = 1, len = 128; len > LEN2; len >>= 1) {
+          for (let start = 0; start < N3; start += 2 * len) {
+            const zeta = nttZetas2[k++];
+            for (let j = start; j < start + len; j++) {
+              const t = mod3(zeta * r[j + len]);
+              r[j + len] = mod3(r[j] - t) | 0;
+              r[j] = mod3(r[j] + t) | 0;
+            }
+          }
+        }
+        return r;
+      },
+      decode: (r) => {
+        for (let k = LEN1 - 1, len = 1 + LEN2; len < LEN1 + LEN2; len <<= 1) {
+          for (let start = 0; start < N3; start += 2 * len) {
+            const zeta = nttZetas2[k--];
+            for (let j = start; j < start + len; j++) {
+              const t = r[j];
+              r[j] = mod3(t + r[j + len]);
+              r[j + len] = mod3(zeta * (r[j + len] - t));
+            }
+          }
+        }
+        for (let i = 0; i < r.length; i++)
+          r[i] = mod3(F3 * r[i]);
+        return r;
+      }
+    };
+    const bitsCoder3 = (d, c) => {
+      const mask = getMask(d);
+      const bytesLen = d * (N3 / 8);
+      return {
+        bytesLen,
+        encode: (poly) => {
+          const r = new Uint8Array(bytesLen);
+          for (let i = 0, buf = 0, bufLen = 0, pos = 0; i < poly.length; i++) {
+            buf |= (c.encode(poly[i]) & mask) << bufLen;
+            bufLen += d;
+            for (; bufLen >= 8; bufLen -= 8, buf >>= 8)
+              r[pos++] = buf & getMask(bufLen);
+          }
+          return r;
+        },
+        decode: (bytes) => {
+          const r = newPoly2(N3);
+          for (let i = 0, buf = 0, bufLen = 0, pos = 0; i < bytes.length; i++) {
+            buf |= bytes[i] << bufLen;
+            bufLen += 8;
+            for (; bufLen >= d; bufLen -= d, buf >>= d)
+              r[pos++] = c.decode(buf & mask);
+          }
+          return r;
+        }
+      };
+    };
+    return { mod: mod3, smod: smod2, nttZetas: nttZetas2, NTT: NTT3, bitsCoder: bitsCoder3 };
+  };
+  var createXofShake = (shake) => (seed, blockLen) => {
+    if (!blockLen)
+      blockLen = shake.blockLen;
+    const _seed = new Uint8Array(seed.length + 2);
+    _seed.set(seed);
+    const seedLen = seed.length;
+    const buf = new Uint8Array(blockLen);
+    let h = shake.create({});
+    let calls = 0;
+    let xofs = 0;
+    return {
+      stats: () => ({ calls, xofs }),
+      get: (x, y) => {
+        _seed[seedLen + 0] = x;
+        _seed[seedLen + 1] = y;
+        h.destroy();
+        h = shake.create({}).update(_seed);
+        calls++;
+        return () => {
+          xofs++;
+          return h.xofInto(buf);
+        };
+      },
+      clean: () => {
+        h.destroy();
+        buf.fill(0);
+        _seed.fill(0);
+      }
+    };
+  };
+  var XOF128 = /* @__PURE__ */ createXofShake(shake128);
+  var XOF256 = /* @__PURE__ */ createXofShake(shake256);
+
+  // node_modules/@noble/post-quantum/esm/ml-dsa.js
+  var N = 256;
+  var Q = 8380417;
+  var ROOT_OF_UNITY = 1753;
+  var F = 8347681;
+  var D = 13;
+  var GAMMA2_1 = Math.floor((Q - 1) / 88) | 0;
+  var GAMMA2_2 = Math.floor((Q - 1) / 32) | 0;
+  var PARAMS = {
+    2: { K: 4, L: 4, D, GAMMA1: 2 ** 17, GAMMA2: GAMMA2_1, TAU: 39, ETA: 2, OMEGA: 80 },
+    3: { K: 6, L: 5, D, GAMMA1: 2 ** 19, GAMMA2: GAMMA2_2, TAU: 49, ETA: 4, OMEGA: 55 },
+    5: { K: 8, L: 7, D, GAMMA1: 2 ** 19, GAMMA2: GAMMA2_2, TAU: 60, ETA: 2, OMEGA: 75 }
+  };
+  var newPoly = (n) => new Int32Array(n);
+  var { mod, smod, NTT, bitsCoder } = genCrystals({
+    N,
+    Q,
+    F,
+    ROOT_OF_UNITY,
+    newPoly,
+    isKyber: false,
+    brvBits: 8
+  });
+  var id = (n) => n;
+  var polyCoder = (d, compress2 = id, verify = id) => bitsCoder(d, {
+    encode: (i) => compress2(verify(i)),
+    decode: (i) => verify(compress2(i))
+  });
+  var polyAdd = (a, b) => {
+    for (let i = 0; i < a.length; i++)
+      a[i] = mod(a[i] + b[i]);
+    return a;
+  };
+  var polySub = (a, b) => {
+    for (let i = 0; i < a.length; i++)
+      a[i] = mod(a[i] - b[i]);
+    return a;
+  };
+  var polyShiftl = (p) => {
+    for (let i = 0; i < N; i++)
+      p[i] <<= D;
+    return p;
+  };
+  var polyChknorm = (p, B) => {
+    for (let i = 0; i < N; i++)
+      if (Math.abs(smod(p[i])) >= B)
+        return true;
+    return false;
+  };
+  var MultiplyNTTs = (a, b) => {
+    const c = newPoly(N);
+    for (let i = 0; i < a.length; i++)
+      c[i] = mod(a[i] * b[i]);
+    return c;
+  };
+  function RejNTTPoly(xof) {
+    const r = newPoly(N);
+    for (let j = 0; j < N; ) {
+      const b = xof();
+      if (b.length % 3)
+        throw new Error("RejNTTPoly: unaligned block");
+      for (let i = 0; j < N && i <= b.length - 3; i += 3) {
+        const t = (b[i + 0] | b[i + 1] << 8 | b[i + 2] << 16) & 8388607;
+        if (t < Q)
+          r[j++] = t;
+      }
+    }
+    return r;
+  }
+  function getDilithium(opts2) {
+    const { K, L, GAMMA1, GAMMA2, TAU, ETA, OMEGA } = opts2;
+    const { CRH_BYTES, TR_BYTES, C_TILDE_BYTES, XOF128: XOF1282, XOF256: XOF2562 } = opts2;
+    if (![2, 4].includes(ETA))
+      throw new Error("Wrong ETA");
+    if (![1 << 17, 1 << 19].includes(GAMMA1))
+      throw new Error("Wrong GAMMA1");
+    if (![GAMMA2_1, GAMMA2_2].includes(GAMMA2))
+      throw new Error("Wrong GAMMA2");
+    const BETA = TAU * ETA;
+    const decompose = (r) => {
+      const rPlus = mod(r);
+      const r0 = smod(rPlus, 2 * GAMMA2) | 0;
+      if (rPlus - r0 === Q - 1)
+        return { r1: 0 | 0, r0: r0 - 1 | 0 };
+      const r1 = Math.floor((rPlus - r0) / (2 * GAMMA2)) | 0;
+      return { r1, r0 };
+    };
+    const HighBits = (r) => decompose(r).r1;
+    const LowBits = (r) => decompose(r).r0;
+    const MakeHint = (z, r) => {
+      const res0 = z <= GAMMA2 || z > Q - GAMMA2 || z === Q - GAMMA2 && r === 0 ? 0 : 1;
+      return res0;
+    };
+    const UseHint = (h, r) => {
+      const m = Math.floor((Q - 1) / (2 * GAMMA2));
+      const { r1, r0 } = decompose(r);
+      if (h === 1)
+        return r0 > 0 ? mod(r1 + 1, m) | 0 : mod(r1 - 1, m) | 0;
+      return r1 | 0;
+    };
+    const Power2Round = (r) => {
+      const rPlus = mod(r);
+      const r0 = smod(rPlus, 2 ** D) | 0;
+      return { r1: Math.floor((rPlus - r0) / 2 ** D) | 0, r0 };
+    };
+    const hintCoder = {
+      bytesLen: OMEGA + K,
+      encode: (h) => {
+        if (h === false)
+          throw new Error("hint.encode: hint is false");
+        const res = new Uint8Array(OMEGA + K);
+        for (let i = 0, k = 0; i < K; i++) {
+          for (let j = 0; j < N; j++)
+            if (h[i][j] !== 0)
+              res[k++] = j;
+          res[OMEGA + i] = k;
+        }
+        return res;
+      },
+      decode: (buf) => {
+        const h = [];
+        let k = 0;
+        for (let i = 0; i < K; i++) {
+          const hi = newPoly(N);
+          if (buf[OMEGA + i] < k || buf[OMEGA + i] > OMEGA)
+            return false;
+          for (let j = k; j < buf[OMEGA + i]; j++) {
+            if (j > k && buf[j] <= buf[j - 1])
+              return false;
+            hi[buf[j]] = 1;
+          }
+          k = buf[OMEGA + i];
+          h.push(hi);
+        }
+        for (let j = k; j < OMEGA; j++)
+          if (buf[j] !== 0)
+            return false;
+        return h;
+      }
+    };
+    const ETACoder = polyCoder(ETA === 2 ? 3 : 4, (i) => ETA - i, (i) => {
+      if (!(-ETA <= i && i <= ETA))
+        throw new Error(`malformed key s1/s3 ${i} outside of ETA range [${-ETA}, ${ETA}]`);
+      return i;
+    });
+    const T0Coder = polyCoder(13, (i) => (1 << D - 1) - i);
+    const T1Coder = polyCoder(10);
+    const ZCoder = polyCoder(GAMMA1 === 1 << 17 ? 18 : 20, (i) => smod(GAMMA1 - i));
+    const W1Coder = polyCoder(GAMMA2 === GAMMA2_1 ? 6 : 4);
+    const W1Vec = vecCoder(W1Coder, K);
+    const publicCoder = splitCoder(32, vecCoder(T1Coder, K));
+    const secretCoder = splitCoder(32, 32, TR_BYTES, vecCoder(ETACoder, L), vecCoder(ETACoder, K), vecCoder(T0Coder, K));
+    const sigCoder = splitCoder(C_TILDE_BYTES, vecCoder(ZCoder, L), hintCoder);
+    const CoefFromHalfByte = ETA === 2 ? (n) => n < 15 ? 2 - n % 5 : false : (n) => n < 9 ? 4 - n : false;
+    function RejBoundedPoly(xof) {
+      const r = newPoly(N);
+      for (let j = 0; j < N; ) {
+        const b = xof();
+        for (let i = 0; j < N && i < b.length; i += 1) {
+          const d1 = CoefFromHalfByte(b[i] & 15);
+          const d2 = CoefFromHalfByte(b[i] >> 4 & 15);
+          if (d1 !== false)
+            r[j++] = d1;
+          if (j < N && d2 !== false)
+            r[j++] = d2;
+        }
+      }
+      return r;
+    }
+    const SampleInBall = (seed) => {
+      const pre = newPoly(N);
+      const s = shake256.create({}).update(seed);
+      const buf = new Uint8Array(shake256.blockLen);
+      s.xofInto(buf);
+      const masks = buf.slice(0, 8);
+      for (let i = N - TAU, pos = 8, maskPos = 0, maskBit = 0; i < N; i++) {
+        let b = i + 1;
+        for (; b > i; ) {
+          b = buf[pos++];
+          if (pos < shake256.blockLen)
+            continue;
+          s.xofInto(buf);
+          pos = 0;
+        }
+        pre[i] = pre[b];
+        pre[b] = 1 - ((masks[maskPos] >> maskBit++ & 1) << 1);
+        if (maskBit >= 8) {
+          maskPos++;
+          maskBit = 0;
+        }
+      }
+      return pre;
+    };
+    const polyPowerRound = (p) => {
+      const res0 = newPoly(N);
+      const res1 = newPoly(N);
+      for (let i = 0; i < p.length; i++) {
+        const { r0, r1 } = Power2Round(p[i]);
+        res0[i] = r0;
+        res1[i] = r1;
+      }
+      return { r0: res0, r1: res1 };
+    };
+    const polyUseHint = (u, h) => {
+      for (let i = 0; i < N; i++)
+        u[i] = UseHint(h[i], u[i]);
+      return u;
+    };
+    const polyMakeHint = (a, b) => {
+      const v = newPoly(N);
+      let cnt = 0;
+      for (let i = 0; i < N; i++) {
+        const h = MakeHint(a[i], b[i]);
+        v[i] = h;
+        cnt += h;
+      }
+      return { v, cnt };
+    };
+    const signRandBytes = 32;
+    const seedCoder = splitCoder(32, 64, 32);
+    const internal = {
+      signRandBytes,
+      keygen: (seed) => {
+        const seedDst = new Uint8Array(32 + 2);
+        const randSeed = seed === void 0;
+        if (randSeed)
+          seed = randomBytes2(32);
+        ensureBytes(seed, 32);
+        seedDst.set(seed);
+        if (randSeed)
+          seed.fill(0);
+        seedDst[32] = K;
+        seedDst[33] = L;
+        const [rho, rhoPrime, K_] = seedCoder.decode(shake256(seedDst, { dkLen: seedCoder.bytesLen }));
+        const xofPrime = XOF2562(rhoPrime);
+        const s1 = [];
+        for (let i = 0; i < L; i++)
+          s1.push(RejBoundedPoly(xofPrime.get(i & 255, i >> 8 & 255)));
+        const s2 = [];
+        for (let i = L; i < L + K; i++)
+          s2.push(RejBoundedPoly(xofPrime.get(i & 255, i >> 8 & 255)));
+        const s1Hat = s1.map((i) => NTT.encode(i.slice()));
+        const t0 = [];
+        const t1 = [];
+        const xof = XOF1282(rho);
+        const t = newPoly(N);
+        for (let i = 0; i < K; i++) {
+          t.fill(0);
+          for (let j = 0; j < L; j++) {
+            const aij = RejNTTPoly(xof.get(j, i));
+            polyAdd(t, MultiplyNTTs(aij, s1Hat[j]));
+          }
+          NTT.decode(t);
+          const { r0, r1 } = polyPowerRound(polyAdd(t, s2[i]));
+          t0.push(r0);
+          t1.push(r1);
+        }
+        const publicKey = publicCoder.encode([rho, t1]);
+        const tr = shake256(publicKey, { dkLen: TR_BYTES });
+        const secretKey = secretCoder.encode([rho, K_, tr, s1, s2, t0]);
+        xof.clean();
+        xofPrime.clean();
+        cleanBytes(rho, rhoPrime, K_, s1, s2, s1Hat, t, t0, t1, tr, seedDst);
+        return { publicKey, secretKey };
+      },
+      // NOTE: random is optional.
+      sign: (secretKey, msg, random, externalMu = false) => {
+        const [rho, _K, tr, s1, s2, t0] = secretCoder.decode(secretKey);
+        const A = [];
+        const xof = XOF1282(rho);
+        for (let i = 0; i < K; i++) {
+          const pv = [];
+          for (let j = 0; j < L; j++)
+            pv.push(RejNTTPoly(xof.get(j, i)));
+          A.push(pv);
+        }
+        xof.clean();
+        for (let i = 0; i < L; i++)
+          NTT.encode(s1[i]);
+        for (let i = 0; i < K; i++) {
+          NTT.encode(s2[i]);
+          NTT.encode(t0[i]);
+        }
+        const mu = externalMu ? msg : shake256.create({ dkLen: CRH_BYTES }).update(tr).update(msg).digest();
+        const rnd = random ? random : new Uint8Array(32);
+        ensureBytes(rnd);
+        const rhoprime = shake256.create({ dkLen: CRH_BYTES }).update(_K).update(rnd).update(mu).digest();
+        ensureBytes(rhoprime, CRH_BYTES);
+        const x256 = XOF2562(rhoprime, ZCoder.bytesLen);
+        main_loop: for (let kappa = 0; ; ) {
+          const y = [];
+          for (let i = 0; i < L; i++, kappa++)
+            y.push(ZCoder.decode(x256.get(kappa & 255, kappa >> 8)()));
+          const z = y.map((i) => NTT.encode(i.slice()));
+          const w = [];
+          for (let i = 0; i < K; i++) {
+            const wi = newPoly(N);
+            for (let j = 0; j < L; j++)
+              polyAdd(wi, MultiplyNTTs(A[i][j], z[j]));
+            NTT.decode(wi);
+            w.push(wi);
+          }
+          const w1 = w.map((j) => j.map(HighBits));
+          const cTilde = shake256.create({ dkLen: C_TILDE_BYTES }).update(mu).update(W1Vec.encode(w1)).digest();
+          const cHat = NTT.encode(SampleInBall(cTilde));
+          const cs1 = s1.map((i) => MultiplyNTTs(i, cHat));
+          for (let i = 0; i < L; i++) {
+            polyAdd(NTT.decode(cs1[i]), y[i]);
+            if (polyChknorm(cs1[i], GAMMA1 - BETA))
+              continue main_loop;
+          }
+          let cnt = 0;
+          const h = [];
+          for (let i = 0; i < K; i++) {
+            const cs2 = NTT.decode(MultiplyNTTs(s2[i], cHat));
+            const r0 = polySub(w[i], cs2).map(LowBits);
+            if (polyChknorm(r0, GAMMA2 - BETA))
+              continue main_loop;
+            const ct0 = NTT.decode(MultiplyNTTs(t0[i], cHat));
+            if (polyChknorm(ct0, GAMMA2))
+              continue main_loop;
+            polyAdd(r0, ct0);
+            const hint = polyMakeHint(r0, w1[i]);
+            h.push(hint.v);
+            cnt += hint.cnt;
+          }
+          if (cnt > OMEGA)
+            continue;
+          x256.clean();
+          const res = sigCoder.encode([cTilde, cs1, h]);
+          cleanBytes(cTilde, cs1, h, cHat, w1, w, z, y, rhoprime, mu, s1, s2, t0, ...A);
+          return res;
+        }
+        throw new Error("Unreachable code path reached, report this error");
+      },
+      verify: (publicKey, msg, sig, externalMu = false) => {
+        const [rho, t1] = publicCoder.decode(publicKey);
+        const tr = shake256(publicKey, { dkLen: TR_BYTES });
+        if (sig.length !== sigCoder.bytesLen)
+          return false;
+        const [cTilde, z, h] = sigCoder.decode(sig);
+        if (h === false)
+          return false;
+        for (let i = 0; i < L; i++)
+          if (polyChknorm(z[i], GAMMA1 - BETA))
+            return false;
+        const mu = externalMu ? msg : shake256.create({ dkLen: CRH_BYTES }).update(tr).update(msg).digest();
+        const c = NTT.encode(SampleInBall(cTilde));
+        const zNtt = z.map((i) => i.slice());
+        for (let i = 0; i < L; i++)
+          NTT.encode(zNtt[i]);
+        const wTick1 = [];
+        const xof = XOF1282(rho);
+        for (let i = 0; i < K; i++) {
+          const ct12d = MultiplyNTTs(NTT.encode(polyShiftl(t1[i])), c);
+          const Az = newPoly(N);
+          for (let j = 0; j < L; j++) {
+            const aij = RejNTTPoly(xof.get(j, i));
+            polyAdd(Az, MultiplyNTTs(aij, zNtt[j]));
+          }
+          const wApprox = NTT.decode(polySub(Az, ct12d));
+          wTick1.push(polyUseHint(wApprox, h[i]));
+        }
+        xof.clean();
+        const c2 = shake256.create({ dkLen: C_TILDE_BYTES }).update(mu).update(W1Vec.encode(wTick1)).digest();
+        for (const t of h) {
+          const sum = t.reduce((acc, i) => acc + i, 0);
+          if (!(sum <= OMEGA))
+            return false;
+        }
+        for (const t of z)
+          if (polyChknorm(t, GAMMA1 - BETA))
+            return false;
+        return equalBytes(cTilde, c2);
+      }
+    };
+    return {
+      internal,
+      keygen: internal.keygen,
+      signRandBytes: internal.signRandBytes,
+      sign: (secretKey, msg, ctx = EMPTY, random) => {
+        const M = getMessage(msg, ctx);
+        const res = internal.sign(secretKey, M, random);
+        M.fill(0);
+        return res;
+      },
+      verify: (publicKey, msg, sig, ctx = EMPTY) => {
+        return internal.verify(publicKey, getMessage(msg, ctx), sig);
+      },
+      prehash: (hashName) => ({
+        sign: (secretKey, msg, ctx = EMPTY, random) => {
+          const M = getMessagePrehash(hashName, msg, ctx);
+          const res = internal.sign(secretKey, M, random);
+          M.fill(0);
+          return res;
+        },
+        verify: (publicKey, msg, sig, ctx = EMPTY) => {
+          return internal.verify(publicKey, getMessagePrehash(hashName, msg, ctx), sig);
+        }
+      })
+    };
+  }
+  var ml_dsa44 = /* @__PURE__ */ getDilithium({
+    ...PARAMS[2],
+    CRH_BYTES: 64,
+    TR_BYTES: 64,
+    C_TILDE_BYTES: 32,
+    XOF128,
+    XOF256
+  });
+  var ml_dsa65 = /* @__PURE__ */ getDilithium({
+    ...PARAMS[3],
+    CRH_BYTES: 64,
+    TR_BYTES: 64,
+    C_TILDE_BYTES: 48,
+    XOF128,
+    XOF256
+  });
+  var ml_dsa87 = /* @__PURE__ */ getDilithium({
+    ...PARAMS[5],
+    CRH_BYTES: 64,
+    TR_BYTES: 64,
+    C_TILDE_BYTES: 64,
+    XOF128,
+    XOF256
+  });
+
+  // node_modules/@noble/post-quantum/esm/ml-kem.js
+  var N2 = 256;
+  var Q2 = 3329;
+  var F2 = 3303;
+  var ROOT_OF_UNITY2 = 17;
+  var { mod: mod2, nttZetas, NTT: NTT2, bitsCoder: bitsCoder2 } = genCrystals({
+    N: N2,
+    Q: Q2,
+    F: F2,
+    ROOT_OF_UNITY: ROOT_OF_UNITY2,
+    newPoly: (n) => new Uint16Array(n),
+    brvBits: 7,
+    isKyber: true
+  });
+  var PARAMS2 = {
+    512: { N: N2, Q: Q2, K: 2, ETA1: 3, ETA2: 2, du: 10, dv: 4, RBGstrength: 128 },
+    768: { N: N2, Q: Q2, K: 3, ETA1: 2, ETA2: 2, du: 10, dv: 4, RBGstrength: 192 },
+    1024: { N: N2, Q: Q2, K: 4, ETA1: 2, ETA2: 2, du: 11, dv: 5, RBGstrength: 256 }
+  };
+  var compress = (d) => {
+    if (d >= 12)
+      return { encode: (i) => i, decode: (i) => i };
+    const a = 2 ** (d - 1);
+    return {
+      // const compress = (i: number) => round((2 ** d / Q) * i) % 2 ** d;
+      encode: (i) => ((i << d) + Q2 / 2) / Q2,
+      // const decompress = (i: number) => round((Q / 2 ** d) * i);
+      decode: (i) => i * Q2 + a >>> d
+    };
+  };
+  var polyCoder2 = (d) => bitsCoder2(d, compress(d));
+  function polyAdd2(a, b) {
+    for (let i = 0; i < N2; i++)
+      a[i] = mod2(a[i] + b[i]);
+  }
+  function polySub2(a, b) {
+    for (let i = 0; i < N2; i++)
+      a[i] = mod2(a[i] - b[i]);
+  }
+  function BaseCaseMultiply(a0, a1, b0, b1, zeta) {
+    const c0 = mod2(a1 * b1 * zeta + a0 * b0);
+    const c1 = mod2(a0 * b1 + a1 * b0);
+    return { c0, c1 };
+  }
+  function MultiplyNTTs2(f, g) {
+    for (let i = 0; i < N2 / 2; i++) {
+      let z = nttZetas[64 + (i >> 1)];
+      if (i & 1)
+        z = -z;
+      const { c0, c1 } = BaseCaseMultiply(f[2 * i + 0], f[2 * i + 1], g[2 * i + 0], g[2 * i + 1], z);
+      f[2 * i + 0] = c0;
+      f[2 * i + 1] = c1;
+    }
+    return f;
+  }
+  function SampleNTT(xof) {
+    const r = new Uint16Array(N2);
+    for (let j = 0; j < N2; ) {
+      const b = xof();
+      if (b.length % 3)
+        throw new Error("SampleNTT: unaligned block");
+      for (let i = 0; j < N2 && i + 3 <= b.length; i += 3) {
+        const d1 = (b[i + 0] >> 0 | b[i + 1] << 8) & 4095;
+        const d2 = (b[i + 1] >> 4 | b[i + 2] << 4) & 4095;
+        if (d1 < Q2)
+          r[j++] = d1;
+        if (j < N2 && d2 < Q2)
+          r[j++] = d2;
+      }
+    }
+    return r;
+  }
+  function sampleCBD(PRF, seed, nonce, eta) {
+    const buf = PRF(eta * N2 / 4, seed, nonce);
+    const r = new Uint16Array(N2);
+    const b32 = u32(buf);
+    let len = 0;
+    for (let i = 0, p = 0, bb = 0, t0 = 0; i < b32.length; i++) {
+      let b = b32[i];
+      for (let j = 0; j < 32; j++) {
+        bb += b & 1;
+        b >>= 1;
+        len += 1;
+        if (len === eta) {
+          t0 = bb;
+          bb = 0;
+        } else if (len === 2 * eta) {
+          r[p++] = mod2(t0 - bb);
+          bb = 0;
+          len = 0;
+        }
+      }
+    }
+    if (len)
+      throw new Error(`sampleCBD: leftover bits: ${len}`);
+    return r;
+  }
+  var genKPKE = (opts2) => {
+    const { K, PRF, XOF, HASH512, ETA1, ETA2, du, dv } = opts2;
+    const poly1 = polyCoder2(1);
+    const polyV = polyCoder2(dv);
+    const polyU = polyCoder2(du);
+    const publicCoder = splitCoder(vecCoder(polyCoder2(12), K), 32);
+    const secretCoder = vecCoder(polyCoder2(12), K);
+    const cipherCoder = splitCoder(vecCoder(polyU, K), polyV);
+    const seedCoder = splitCoder(32, 32);
+    return {
+      secretCoder,
+      secretKeyLen: secretCoder.bytesLen,
+      publicKeyLen: publicCoder.bytesLen,
+      cipherTextLen: cipherCoder.bytesLen,
+      keygen: (seed) => {
+        ensureBytes(seed, 32);
+        const seedDst = new Uint8Array(33);
+        seedDst.set(seed);
+        seedDst[32] = K;
+        const seedHash = HASH512(seedDst);
+        const [rho, sigma] = seedCoder.decode(seedHash);
+        const sHat = [];
+        const tHat = [];
+        for (let i = 0; i < K; i++)
+          sHat.push(NTT2.encode(sampleCBD(PRF, sigma, i, ETA1)));
+        const x = XOF(rho);
+        for (let i = 0; i < K; i++) {
+          const e = NTT2.encode(sampleCBD(PRF, sigma, K + i, ETA1));
+          for (let j = 0; j < K; j++) {
+            const aji = SampleNTT(x.get(j, i));
+            polyAdd2(e, MultiplyNTTs2(aji, sHat[j]));
+          }
+          tHat.push(e);
+        }
+        x.clean();
+        const res = {
+          publicKey: publicCoder.encode([tHat, rho]),
+          secretKey: secretCoder.encode(sHat)
+        };
+        cleanBytes(rho, sigma, sHat, tHat, seedDst, seedHash);
+        return res;
+      },
+      encrypt: (publicKey, msg, seed) => {
+        const [tHat, rho] = publicCoder.decode(publicKey);
+        const rHat = [];
+        for (let i = 0; i < K; i++)
+          rHat.push(NTT2.encode(sampleCBD(PRF, seed, i, ETA1)));
+        const x = XOF(rho);
+        const tmp2 = new Uint16Array(N2);
+        const u = [];
+        for (let i = 0; i < K; i++) {
+          const e1 = sampleCBD(PRF, seed, K + i, ETA2);
+          const tmp = new Uint16Array(N2);
+          for (let j = 0; j < K; j++) {
+            const aij = SampleNTT(x.get(i, j));
+            polyAdd2(tmp, MultiplyNTTs2(aij, rHat[j]));
+          }
+          polyAdd2(e1, NTT2.decode(tmp));
+          u.push(e1);
+          polyAdd2(tmp2, MultiplyNTTs2(tHat[i], rHat[i]));
+          tmp.fill(0);
+        }
+        x.clean();
+        const e2 = sampleCBD(PRF, seed, 2 * K, ETA2);
+        polyAdd2(e2, NTT2.decode(tmp2));
+        const v = poly1.decode(msg);
+        polyAdd2(v, e2);
+        cleanBytes(tHat, rHat, tmp2, e2);
+        return cipherCoder.encode([u, v]);
+      },
+      decrypt: (cipherText, privateKey) => {
+        const [u, v] = cipherCoder.decode(cipherText);
+        const sk = secretCoder.decode(privateKey);
+        const tmp = new Uint16Array(N2);
+        for (let i = 0; i < K; i++)
+          polyAdd2(tmp, MultiplyNTTs2(sk[i], NTT2.encode(u[i])));
+        polySub2(v, NTT2.decode(tmp));
+        cleanBytes(tmp, sk, u);
+        return poly1.encode(v);
+      }
+    };
+  };
+  function createKyber(opts2) {
+    const KPKE = genKPKE(opts2);
+    const { HASH256, HASH512, KDF } = opts2;
+    const { secretCoder: KPKESecretCoder, cipherTextLen } = KPKE;
+    const publicKeyLen = KPKE.publicKeyLen;
+    const secretCoder = splitCoder(KPKE.secretKeyLen, KPKE.publicKeyLen, 32, 32);
+    const secretKeyLen = secretCoder.bytesLen;
+    const msgLen = 32;
+    return {
+      publicKeyLen,
+      msgLen,
+      keygen: (seed = randomBytes2(64)) => {
+        ensureBytes(seed, 64);
+        const { publicKey, secretKey: sk } = KPKE.keygen(seed.subarray(0, 32));
+        const publicKeyHash = HASH256(publicKey);
+        const secretKey = secretCoder.encode([sk, publicKey, publicKeyHash, seed.subarray(32)]);
+        cleanBytes(sk, publicKeyHash);
+        return { publicKey, secretKey };
+      },
+      encapsulate: (publicKey, msg = randomBytes2(32)) => {
+        ensureBytes(publicKey, publicKeyLen);
+        ensureBytes(msg, msgLen);
+        const eke = publicKey.subarray(0, 384 * opts2.K);
+        const ek = KPKESecretCoder.encode(KPKESecretCoder.decode(eke.slice()));
+        if (!equalBytes(ek, eke)) {
+          cleanBytes(ek);
+          throw new Error("ML-KEM.encapsulate: wrong publicKey modulus");
+        }
+        cleanBytes(ek);
+        const kr = HASH512.create().update(msg).update(HASH256(publicKey)).digest();
+        const cipherText = KPKE.encrypt(publicKey, msg, kr.subarray(32, 64));
+        kr.subarray(32).fill(0);
+        return { cipherText, sharedSecret: kr.subarray(0, 32) };
+      },
+      decapsulate: (cipherText, secretKey) => {
+        ensureBytes(secretKey, secretKeyLen);
+        ensureBytes(cipherText, cipherTextLen);
+        const [sk, publicKey, publicKeyHash, z] = secretCoder.decode(secretKey);
+        const msg = KPKE.decrypt(cipherText, sk);
+        const kr = HASH512.create().update(msg).update(publicKeyHash).digest();
+        const Khat = kr.subarray(0, 32);
+        const cipherText2 = KPKE.encrypt(publicKey, msg, kr.subarray(32, 64));
+        const isValid = equalBytes(cipherText, cipherText2);
+        const Kbar = KDF.create({ dkLen: 32 }).update(z).update(cipherText).digest();
+        cleanBytes(msg, cipherText2, !isValid ? Khat : Kbar);
+        return isValid ? Khat : Kbar;
+      }
+    };
+  }
+  function shakePRF(dkLen, key, nonce) {
+    return shake256.create({ dkLen }).update(key).update(new Uint8Array([nonce])).digest();
+  }
+  var opts = {
+    HASH256: sha3_256,
+    HASH512: sha3_512,
+    KDF: shake256,
+    XOF: XOF128,
+    PRF: shakePRF
+  };
+  var ml_kem512 = /* @__PURE__ */ createKyber({
+    ...opts,
+    ...PARAMS2[512]
+  });
+  var ml_kem768 = /* @__PURE__ */ createKyber({
+    ...opts,
+    ...PARAMS2[768]
+  });
+  var ml_kem1024 = /* @__PURE__ */ createKyber({
+    ...opts,
+    ...PARAMS2[1024]
+  });
+
+  // <stdin>
+  window.ml_dsa65 = ml_dsa65;
+  window.ml_kem768 = ml_kem768;
+  window._pqLoaded = true;
+})();
 /*! Bundled license information:
 
 @noble/hashes/esm/utils.js:
