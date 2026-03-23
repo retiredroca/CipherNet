@@ -371,7 +371,7 @@ const Channels = {
 
     // Publish updated metadata to Nostr
     if (window.CipherNostr && window.CipherNostr.isReady())
-      publishChannelUpdate(ch).catch(() => {});
+      Channels.publishToNostr(ch).catch(() => {});
 
     saveChannels();
     fireOnUpdate();
@@ -471,7 +471,7 @@ const Channels = {
     publishAdminEvent(channelId, event);
 
     if (window.CipherNostr && window.CipherNostr.isReady())
-      publishChannelUpdate(ch).catch(() => {});
+      Channels.publishToNostr(ch).catch(() => {});
 
     saveChannels();
     fireOnUpdate();
