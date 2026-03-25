@@ -1,0 +1,43 @@
+# CipherNet
+
+# CDN libraries (download separately)
+openpgp.min.js
+
+# Python font embedder
+__pycache__/
+*.pyc
+
+# Node / npm
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Tauri
+app/tauri/src-tauri/target/
+app/tauri/src-tauri/Cargo.lock
+
+# Web build output
+app/web/
+
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# Secrets / keys
+*.pem
+*.key
+.env
+.env.*
+!</.env.example
+
+# Logs
+*.log

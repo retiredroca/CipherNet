@@ -1,10 +1,16 @@
+use std::net::TcpStream;
+use std::time::Duration;
 use tauri::Manager;
 
-// Detect Tor SOCKS5 proxy on standard ports
 fn detect_tor() -> Option<String> {
     let ports = [9150u16, 9050, 9051];
     for port in ports {
-        if std::net::TcpStream::connect(format!("127.0.0.1:{}", port)).is_ok() {
+        if TcpStream::connect_timeout(
+            &std::net::SocketAddr::from(([127, 0, 0, 1], port)),
+            Duration::from_millis(500),
+        )
+        .is_ok()
+        {
             println!("[CIPHER//NET] Tor detected on port {}", port);
             return Some(format!("socks5://127.0.0.1:{}", port));
         }
@@ -21,7 +27,6 @@ pub fn run() {
         .setup(move |app| {
             let window = app.get_webview_window("main").unwrap();
 
-            // Inject desktop flags into the WebView
             let tor_json = serde_json::to_string(&tor_proxy).unwrap_or("null".into());
             let script = format!(
                 "window.__CIPHERNET_DESKTOP__ = true; \

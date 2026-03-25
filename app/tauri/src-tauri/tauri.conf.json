@@ -4,7 +4,8 @@
   "version": "1.0.0",
   "identifier": "net.ciphernet.chat",
   "build": {
-    "frontendDist": "../web"
+    "frontendDist": "../web",
+    "devtools": true
   },
   "app": {
     "windows": [
@@ -15,7 +16,8 @@
         "minWidth": 800,
         "minHeight": 600,
         "resizable": true,
-        "fullscreen": false
+        "fullscreen": false,
+        "center": true
       }
     ],
     "security": {
@@ -27,6 +29,11 @@
     "targets": "all",
     "icon": [
       "icons/icon.png"
-    ]
+    ],
+    "windows": {
+      "webviewInstallMode": {
+        "type": "embedBootstrapper"
+      }
+    }
   }
 }
