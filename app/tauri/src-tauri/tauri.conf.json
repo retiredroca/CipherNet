@@ -4,8 +4,7 @@
   "version": "1.0.0",
   "identifier": "net.ciphernet.chat",
   "build": {
-    "frontendDist": "../web",
-    "devtools": true
+    "frontendDist": "../web"
   },
   "app": {
     "windows": [
