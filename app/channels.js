@@ -9,40 +9,59 @@
 //   private — invite-only, joined via signed token
 //
 // Roles (crypto-enforced via passphrase + signed events):
-//   owner   — created channel, holds admin signing key
-//   admin   — promoted by owner, can ban / set passphrase
+//   owner   — created channel, holds admin keypair
+//   admin   — promoted by owner, can ban/set passphrase
 //   member  — has write passphrase
-//   guest   — can read open channels, cannot write to locked ones
-//   banned  — fingerprint on ban list, messages ignored locally
+//   guest   — can read unencrypted channels, cannot write
+//   banned  — fingerprint on ban list, messages ignored
 //
 // Nostr kinds used:
-//   40   — channel creation metadata (event ID = canonical channel ID)
-//   42   — channel message
-//   9734 — admin event (ban, promote, passphrase change, archive)
+//   40  — channel creation metadata
+//   41  — channel metadata update
+//   42  — channel message
+//   9733 — private: channel invite token (NIP-57 inspired)
+//   9734 — channel admin event (ban, promote, passphrase update)
 // ═══════════════════════════════════════════════════════
 
 // ── Storage keys ─────────────────────────────────────────
-const CHANNELS_KEY = 'cipher_channels_v2';
-const JOINED_KEY   = 'cipher_joined_channels';
+const CHANNELS_KEY  = 'cipher_channels_v2';
+const JOINED_KEY    = 'cipher_joined_channels';
+const INVITES_KEY   = 'cipher_channel_invites';
+
+// ── Channel schema ───────────────────────────────────────
+/*
+Channel object:
+{
+  id:          string,   // SHA-256 of "ciphernet-channel-v2:<name>:<ownerFp>"
+  name:        string,   // display name
+  description: string,
+  type:        'public' | 'private',
+  ownerFp:     string,   // CIPHER//NET fingerprint of owner
+  ownerPub:    string,   // owner public key PEM (for verifying admin events)
+  created:     number,   // timestamp ms
+  archived:    boolean,
+
+  // Passphrase config
+  passphrase:  boolean,  // true = write requires passphrase
+  // actual passphrase key is stored in cipher_chan_key_<id>
+
+  // Role lists (fingerprints)
+  admins:      string[],
+  banned:      string[],
+
+  // Nostr
+  nostrId:     string | null,  // Nostr event ID of kind 40 creation
+}
+*/
 
 // ── In-memory state ──────────────────────────────────────
 const channelState = {
-  channels:   {},    // id → Channel object
-  joined:     [],    // ordered list of joined channel IDs
-  activeKeys: {},    // id → CryptoKey (AES-GCM)
-  onUpdate:   null,  // callback fired when channel list changes
+  channels:    {},   // id → Channel
+  joined:      [],   // [id, ...] ordered list of joined channel IDs
+  activeKeys:  {},   // id → CryptoKey (AES-GCM write key)
+  subs:        {},   // id → nostrSubId
+  onUpdate:    null, // callback() when channel list changes
 };
-
-// ── Re-entrancy guard ────────────────────────────────────
-// Prevents onUpdate from firing recursively if something inside
-// the callback causes another state change.
-let _onUpdateRunning = false;
-function fireOnUpdate() {
-  if (_onUpdateRunning || !channelState.onUpdate) return;
-  _onUpdateRunning = true;
-  try { channelState.onUpdate(); }
-  finally { _onUpdateRunning = false; }
-}
 
 // ── Persistence ──────────────────────────────────────────
 
@@ -61,6 +80,16 @@ function loadChannels() {
   }
 }
 
+// ── Channel ID derivation ────────────────────────────────
+
+async function deriveChannelId(name, ownerFp) {
+  const buf = await crypto.subtle.digest(
+    'SHA-256',
+    new TextEncoder().encode('ciphernet-channel-v2:' + name + ':' + ownerFp)
+  );
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
 // ── Passphrase key storage ───────────────────────────────
 
 function saveChannelKey(channelId, passphrase) {
@@ -73,125 +102,50 @@ function loadChannelPassphrase(channelId) {
 
 function clearChannelKey(channelId) {
   localStorage.removeItem('cipher_chan_pass_' + channelId);
+  localStorage.removeItem('cipher_chan_key_'  + channelId);
   delete channelState.activeKeys[channelId];
 }
 
-// ── AES key derivation ───────────────────────────────────
-
-async function deriveChannelAESKey(passphrase, channelId) {
-  const enc  = new TextEncoder();
-  const base = await crypto.subtle.importKey(
-    'raw', enc.encode(passphrase), 'PBKDF2', false, ['deriveKey']
-  );
-  const salt = await crypto.subtle.digest(
-    'SHA-256', enc.encode('ciphernet-channel-v2:' + channelId)
-  );
-  return crypto.subtle.deriveKey(
-    { name: 'PBKDF2', salt, iterations: 200000, hash: 'SHA-256' },
-    base,
-    { name: 'AES-GCM', length: 256 },
-    false,
-    ['encrypt', 'decrypt']
-  );
-}
-
-// ── Channel ID derivation ────────────────────────────────
-// Used to generate a local ID before Nostr publishes the channel.
-// Once published, the Nostr event ID replaces this as canonical.
-
-async function deriveChannelId(name, ownerFp) {
-  const buf = await crypto.subtle.digest(
-    'SHA-256',
-    new TextEncoder().encode('ciphernet-channel-v2:' + name + ':' + ownerFp)
-  );
-  return Array.from(new Uint8Array(buf))
-    .map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
 // ── Admin event signing ──────────────────────────────────
+// Admin events are signed with the owner/admin's CIPHER//NET signing key
+// and stored as Nostr kind 9734 events OR in localStorage for offline use.
 
 async function signAdminEvent(payload, signingKey, algo) {
-  const sig = await signData(JSON.stringify(payload), signingKey, algo);
+  const str = JSON.stringify(payload);
+  const sig  = await signData(str, signingKey, algo);
   return { payload, sig, ts: Date.now() };
 }
 
-function publishAdminEvent(channelId, event) {
-  // Persist locally
-  const key  = 'cipher_chan_admin_' + channelId;
-  const list = JSON.parse(localStorage.getItem(key) || '[]');
-  list.push(event);
-  localStorage.setItem(key, JSON.stringify(list));
-  // Broadcast via Nostr if connected
-  if (window.CipherNostr && window.CipherNostr.isReady()) {
-    window.CipherNostr.publishRaw(
-      9734, JSON.stringify(event), [['e', channelId]]
-    ).catch(() => {});
-  }
-}
-
-// ── Nostr publish ────────────────────────────────────────
-// Publishes a kind 40 event. The returned event ID becomes the
-// canonical channel ID so all instances subscribe to the same root.
-
-async function publishToNostr(ch) {
-  if (!window.CipherNostr || !window.CipherNostr.isReady()) return null;
-  const content = JSON.stringify({
-    name:    ch.name,
-    about:   ch.description,
-    picture: '',
-    ciphernet: {
-      type:       ch.type,
-      ownerFp:    ch.ownerFp,
-      ownerPub:   ch.ownerPub,
-      passphrase: ch.passphrase,
-      admins:     ch.admins,
-      banned:     ch.banned,
-      archived:   ch.archived || false,
-      version:    2,
-    },
-  });
-  const nostrId = await window.CipherNostr.publishRaw(40, content, []);
-  if (nostrId && nostrId !== ch.nostrId) {
-    ch.nostrId = nostrId;
-    channelState.channels[ch.id] = ch;
-    saveChannels();
-    // Notify app.js to subscribe to kind 42 messages for this channel
-    if (window.subscribeNostrOneChannel) window.subscribeNostrOneChannel(ch);
-  }
-  return nostrId;
+async function verifyAdminEvent(event, pubKeyPem, algo) {
+  try {
+    const str = JSON.stringify(event.payload);
+    return verifyData(str, event.sig, pubKeyPem, algo);
+  } catch { return false; }
 }
 
 // ── Invite tokens ────────────────────────────────────────
 
 async function generateInvite(channelId, inviterFp, inviterSigningKey, inviterAlgo, passphrase) {
-  const ch = channelState.channels[channelId];
   const token = {
     channelId,
     inviterFp,
     passphrase: passphrase || null,
-    expires: Date.now() + 7 * 24 * 60 * 60 * 1000,
-    nonce: Array.from(crypto.getRandomValues(new Uint8Array(8)))
-      .map(b => b.toString(16).padStart(2, '0')).join(''),
-    // Channel metadata embedded so recipient can join without prior knowledge
-    channelMeta: ch ? {
-      name:        ch.name,
-      description: ch.description,
-      type:        ch.type,
-      ownerFp:     ch.ownerFp,
-      ownerPub:    ch.ownerPub,
-      created:     ch.created,
-    } : null,
+    expires:    Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 days
+    nonce:      Array.from(crypto.getRandomValues(new Uint8Array(8)))
+                  .map(b => b.toString(16).padStart(2,'0')).join(''),
   };
-  const sig = await signData(JSON.stringify(token), inviterSigningKey, inviterAlgo);
-  return btoa(JSON.stringify({ token, sig }));
+  const str = JSON.stringify(token);
+  const sig  = await signData(str, inviterSigningKey, inviterAlgo);
+  const invite = { token, sig };
+  return btoa(JSON.stringify(invite));
 }
 
 async function parseInvite(b64) {
   try {
-    const invite = JSON.parse(atob(b64));
+    const invite  = JSON.parse(atob(b64));
     const { token, sig } = invite;
     if (Date.now() > token.expires) throw new Error('Invite expired');
-    return { token, sig };
+    return { token, sig, raw: invite };
   } catch (e) {
     throw new Error('Invalid invite: ' + e.message);
   }
@@ -226,42 +180,40 @@ const Channels = {
       .filter(c => !c.archived);
   },
 
-  get(id) {
-    return channelState.channels[id] || null;
-  },
+  get(id) { return channelState.channels[id] || null; },
 
   getRole(channelId, fingerprint) {
     const ch = channelState.channels[channelId];
     if (!ch) return null;
-    if (ch.banned.includes(fingerprint)) return 'banned';
-    if (ch.ownerFp === fingerprint)       return 'owner';
-    if (ch.admins.includes(fingerprint))  return 'admin';
-    if (channelState.joined.includes(channelId))
-      return loadChannelPassphrase(channelId) ? 'member' : 'guest';
+    if (ch.banned.includes(fingerprint))  return 'banned';
+    if (ch.ownerFp === fingerprint)        return 'owner';
+    if (ch.admins.includes(fingerprint))   return 'admin';
+    if (channelState.joined.includes(channelId)) {
+      const pass = loadChannelPassphrase(channelId);
+      return pass ? 'member' : 'guest';
+    }
     return 'guest';
   },
 
   canWrite(channelId, fingerprint) {
+    const role = this.getRole(channelId, fingerprint);
+    if (role === 'banned') return false;
+    if (!channelState.channels[channelId]) return false;
     const ch = channelState.channels[channelId];
-    if (!ch) return false;
-    if (this.getRole(channelId, fingerprint) === 'banned') return false;
-    if (!ch.passphrase) return true;
+    if (!ch.passphrase) return role !== null; // open channel — anyone can write
+    // passphrase channel — need write key
     return !!channelState.activeKeys[channelId];
   },
 
   canRead(channelId) {
     const ch = channelState.channels[channelId];
     if (!ch) return false;
-    if (!ch.passphrase) return true;
+    if (!ch.passphrase) return true; // no passphrase = anyone reads
     return !!channelState.activeKeys[channelId];
   },
 
   getActiveKey(channelId) {
     return channelState.activeKeys[channelId] || null;
-  },
-
-  msgKey(channelId) {
-    return 'cipher_msgs_ch_' + channelId;
   },
 
   // ── Create channel ──────────────────────────────────────
@@ -273,21 +225,15 @@ const Channels = {
 
     const id = await deriveChannelId(name.trim(), ownerFp);
     if (channelState.channels[id])
-      throw new Error('You already have a channel with this name');
+      throw new Error('A channel with this name already exists for your identity');
 
     const ch = {
-      id,
-      name:        name.trim(),
-      description,
-      type,
-      ownerFp,
-      ownerPub:    ownerPubKeyPem,
-      created:     Date.now(),
-      archived:    false,
-      passphrase:  !!passphrase,
-      admins:      [],
-      banned:      [],
-      nostrId:     null,
+      id, name: name.trim(), description, type,
+      ownerFp, ownerPub: ownerPubKeyPem,
+      created: Date.now(), archived: false,
+      passphrase: !!passphrase,
+      admins: [], banned: [],
+      nostrId: null,
     };
 
     channelState.channels[id] = ch;
@@ -295,24 +241,22 @@ const Channels = {
 
     if (passphrase) {
       saveChannelKey(id, passphrase);
+      // Derive and cache the AES key
       channelState.activeKeys[id] = await deriveChannelAESKey(passphrase, id);
     }
 
     saveChannels();
 
-    // Publish to Nostr if connected — event ID becomes the canonical channel ID
+    // Publish to Nostr if available
     if (window.CipherNostr && window.CipherNostr.isReady() && type === 'public') {
       try {
-        await publishToNostr(ch);
-      } catch (e) {
-        console.warn('[Channels] Nostr publish failed:', e.message);
-      }
+        const nostrId = await publishChannelCreation(ch);
+        ch.nostrId = nostrId;
+        saveChannels();
+      } catch (e) { console.warn('[Channels] Nostr publish failed:', e.message); }
     }
 
-    // Subscribe to Nostr messages for this channel
-    if (window.subscribeNostrOneChannel) window.subscribeNostrOneChannel(ch);
-
-    fireOnUpdate();
+    if (channelState.onUpdate) channelState.onUpdate();
     return ch;
   },
 
@@ -327,14 +271,12 @@ const Channels = {
     if (passphrase) {
       saveChannelKey(channelId, passphrase);
       channelState.activeKeys[channelId] = await deriveChannelAESKey(passphrase, channelId);
+    } else if (!ch.passphrase) {
+      // No passphrase required — guest/read mode
     }
 
     saveChannels();
-
-    // Subscribe to Nostr messages for this channel
-    if (window.subscribeNostrOneChannel) window.subscribeNostrOneChannel(ch);
-
-    fireOnUpdate();
+    if (channelState.onUpdate) channelState.onUpdate();
     return ch;
   },
 
@@ -342,34 +284,13 @@ const Channels = {
 
   async joinViaInvite(b64Invite, inviterPubKeyPem, inviterAlgo) {
     const { token, sig } = await parseInvite(b64Invite);
+    // Verify invite signature
+    const tokenStr = JSON.stringify(token);
+    const valid    = await verifyData(tokenStr, sig, inviterPubKeyPem, inviterAlgo);
+    if (!valid) throw new Error('Invite signature invalid');
 
-    const valid = await verifyData(JSON.stringify(token), sig, inviterPubKeyPem, inviterAlgo);
-    if (!valid) throw new Error('Invite signature invalid — token may be corrupted or forged');
-
-    // Reconstruct channel from embedded metadata if not already known locally
-    if (!channelState.channels[token.channelId]) {
-      if (!token.channelMeta)
-        throw new Error(
-          'Channel not found locally and invite has no metadata. ' +
-          'Ask the owner to generate a new invite token.'
-        );
-      const m = token.channelMeta;
-      channelState.channels[token.channelId] = {
-        id:          token.channelId,
-        name:        m.name,
-        description: m.description || '',
-        type:        m.type || 'private',
-        ownerFp:     m.ownerFp,
-        ownerPub:    m.ownerPub || '',
-        created:     m.created || Date.now(),
-        archived:    false,
-        passphrase:  !!token.passphrase,
-        admins:      [],
-        banned:      [],
-        nostrId:     null,
-      };
-      saveChannels();
-    }
+    const ch = channelState.channels[token.channelId];
+    if (!ch) throw new Error('Channel not found — make sure the channel creator is in your user registry');
 
     return this.join(token.channelId, token.passphrase);
   },
@@ -380,17 +301,17 @@ const Channels = {
     channelState.joined = channelState.joined.filter(id => id !== channelId);
     clearChannelKey(channelId);
     saveChannels();
-    fireOnUpdate();
+    if (channelState.onUpdate) channelState.onUpdate();
   },
 
-  // ── Set passphrase (owner / admin only) ─────────────────
+  // ── Update passphrase (owner/admin only) ────────────────
 
   async setPassphrase(channelId, newPassphrase, actorFp, actorSigningKey, actorAlgo) {
-    const ch = channelState.channels[channelId];
+    const ch   = channelState.channels[channelId];
     if (!ch) throw new Error('Channel not found');
     const role = this.getRole(channelId, actorFp);
     if (role !== 'owner' && role !== 'admin')
-      throw new Error('Only owner or admin can change the passphrase');
+      throw new Error('Only owner or admin can change passphrase');
 
     ch.passphrase = !!newPassphrase;
     if (newPassphrase) {
@@ -400,152 +321,145 @@ const Channels = {
       clearChannelKey(channelId);
     }
 
-    publishAdminEvent(channelId, await signAdminEvent(
+    // Sign admin event
+    const event = await signAdminEvent(
       { action: 'set_passphrase', channelId, hasPassphrase: ch.passphrase, ts: Date.now() },
       actorSigningKey, actorAlgo
-    ));
+    );
+    publishAdminEvent(channelId, event);
 
+    // Publish updated metadata to Nostr
     if (window.CipherNostr && window.CipherNostr.isReady())
-      publishToNostr(ch).catch(() => {});
+      publishChannelUpdate(ch).catch(() => {});
 
     saveChannels();
-    fireOnUpdate();
+    if (channelState.onUpdate) channelState.onUpdate();
   },
 
-  // ── Ban (owner only) ────────────────────────────────────
+  // ── Ban / unban (owner only) ────────────────────────────
 
   async ban(channelId, targetFp, actorFp, actorSigningKey, actorAlgo) {
     const ch = channelState.channels[channelId];
     if (!ch) throw new Error('Channel not found');
     if (this.getRole(channelId, actorFp) !== 'owner')
-      throw new Error('Only the owner can ban users');
+      throw new Error('Only owner can ban users');
     if (targetFp === actorFp) throw new Error('Cannot ban yourself');
 
     if (!ch.banned.includes(targetFp)) ch.banned.push(targetFp);
     ch.admins = ch.admins.filter(f => f !== targetFp);
 
-    publishAdminEvent(channelId, await signAdminEvent(
+    const event = await signAdminEvent(
       { action: 'ban', channelId, targetFp, ts: Date.now() },
       actorSigningKey, actorAlgo
-    ));
+    );
+    publishAdminEvent(channelId, event);
 
     saveChannels();
-    fireOnUpdate();
+    if (channelState.onUpdate) channelState.onUpdate();
   },
-
-  // ── Unban (owner only) ──────────────────────────────────
 
   async unban(channelId, targetFp, actorFp, actorSigningKey, actorAlgo) {
     const ch = channelState.channels[channelId];
     if (!ch) throw new Error('Channel not found');
     if (this.getRole(channelId, actorFp) !== 'owner')
-      throw new Error('Only the owner can unban users');
+      throw new Error('Only owner can unban');
 
     ch.banned = ch.banned.filter(f => f !== targetFp);
 
-    publishAdminEvent(channelId, await signAdminEvent(
+    const event = await signAdminEvent(
       { action: 'unban', channelId, targetFp, ts: Date.now() },
       actorSigningKey, actorAlgo
-    ));
+    );
+    publishAdminEvent(channelId, event);
 
     saveChannels();
-    fireOnUpdate();
+    if (channelState.onUpdate) channelState.onUpdate();
   },
 
-  // ── Promote to admin (owner only) ───────────────────────
+  // ── Promote / demote admin (owner only) ─────────────────
 
   async promote(channelId, targetFp, actorFp, actorSigningKey, actorAlgo) {
     const ch = channelState.channels[channelId];
     if (!ch) throw new Error('Channel not found');
     if (this.getRole(channelId, actorFp) !== 'owner')
-      throw new Error('Only the owner can promote admins');
-
+      throw new Error('Only owner can promote admins');
     if (!ch.admins.includes(targetFp)) ch.admins.push(targetFp);
     ch.banned = ch.banned.filter(f => f !== targetFp);
 
-    publishAdminEvent(channelId, await signAdminEvent(
+    const event = await signAdminEvent(
       { action: 'promote', channelId, targetFp, ts: Date.now() },
       actorSigningKey, actorAlgo
-    ));
+    );
+    publishAdminEvent(channelId, event);
 
     saveChannels();
-    fireOnUpdate();
+    if (channelState.onUpdate) channelState.onUpdate();
   },
-
-  // ── Demote admin (owner only) ────────────────────────────
 
   async demote(channelId, targetFp, actorFp, actorSigningKey, actorAlgo) {
     const ch = channelState.channels[channelId];
     if (!ch) throw new Error('Channel not found');
     if (this.getRole(channelId, actorFp) !== 'owner')
-      throw new Error('Only the owner can demote admins');
-
+      throw new Error('Only owner can demote admins');
     ch.admins = ch.admins.filter(f => f !== targetFp);
 
-    publishAdminEvent(channelId, await signAdminEvent(
+    const event = await signAdminEvent(
       { action: 'demote', channelId, targetFp, ts: Date.now() },
       actorSigningKey, actorAlgo
-    ));
+    );
+    publishAdminEvent(channelId, event);
 
     saveChannels();
-    fireOnUpdate();
+    if (channelState.onUpdate) channelState.onUpdate();
   },
 
-  // ── Archive channel (owner only) ────────────────────────
+  // ── Archive / delete (owner only) ───────────────────────
 
   async archive(channelId, actorFp, actorSigningKey, actorAlgo) {
     const ch = channelState.channels[channelId];
     if (!ch) throw new Error('Channel not found');
-    if (ch.ownerFp !== actorFp) throw new Error('Only the owner can archive a channel');
+    if (ch.ownerFp !== actorFp) throw new Error('Only owner can archive channel');
 
     ch.archived = true;
     channelState.joined = channelState.joined.filter(id => id !== channelId);
 
-    publishAdminEvent(channelId, await signAdminEvent(
+    const event = await signAdminEvent(
       { action: 'archive', channelId, ts: Date.now() },
       actorSigningKey, actorAlgo
-    ));
+    );
+    publishAdminEvent(channelId, event);
 
     if (window.CipherNostr && window.CipherNostr.isReady())
-      publishToNostr(ch).catch(() => {});
+      publishChannelUpdate(ch).catch(() => {});
 
     saveChannels();
-    fireOnUpdate();
+    if (channelState.onUpdate) channelState.onUpdate();
   },
 
-  // ── Generate invite token ────────────────────────────────
+  // ── Generate invite ──────────────────────────────────────
 
   async invite(channelId, actorFp, actorSigningKey, actorAlgo) {
-    const ch = channelState.channels[channelId];
+    const ch   = channelState.channels[channelId];
     if (!ch) throw new Error('Channel not found');
     const role = this.getRole(channelId, actorFp);
     if (role !== 'owner' && role !== 'admin')
       throw new Error('Only owner or admin can generate invites');
 
-    return generateInvite(
-      channelId, actorFp, actorSigningKey, actorAlgo,
-      loadChannelPassphrase(channelId)
-    );
+    const passphrase = loadChannelPassphrase(channelId);
+    return generateInvite(channelId, actorFp, actorSigningKey, actorAlgo, passphrase);
   },
 
-  // ── Import channel discovered via Nostr kind 40 ──────────
+  joinViaInvite,
+
+  // ── Import channel from Nostr event ─────────────────────
 
   async importFromNostr(kind40Event) {
     try {
       const meta = JSON.parse(kind40Event.content);
-      if (!meta.name || !meta.ciphernet) return;
+      if (!meta.name || !meta.ciphernet) return; // not a CIPHER//NET channel
 
       const id = kind40Event.id;
-
-      // If already known, only update archived state
-      if (channelState.channels[id]) {
-        if (meta.ciphernet.archived && !channelState.channels[id].archived) {
-          channelState.channels[id].archived = true;
-          saveChannels();
-          fireOnUpdate();
-        }
-        return;
-      }
+      if (channelState.channels[id]) return; // already known
 
       channelState.channels[id] = {
         id,
@@ -563,11 +477,22 @@ const Channels = {
       };
 
       saveChannels();
-      fireOnUpdate();
-    } catch { /* malformed event — ignore */ }
+      if (channelState.onUpdate) channelState.onUpdate();
+    } catch { /* invalid event */ }
   },
 
-  // ── Restore passphrase keys on login ────────────────────
+  // ── Set active key for channel (called when passphrase entered) ──
+
+  async activateKey(channelId, passphrase) {
+    try {
+      const key = await deriveChannelAESKey(passphrase, channelId);
+      channelState.activeKeys[channelId] = key;
+      saveChannelKey(channelId, passphrase);
+      return true;
+    } catch { return false; }
+  },
+
+  // ── Restore saved keys on login ──────────────────────────
 
   async restoreKeys() {
     for (const id of channelState.joined) {
@@ -575,15 +500,115 @@ const Channels = {
       if (pass) {
         try {
           channelState.activeKeys[id] = await deriveChannelAESKey(pass, id);
-        } catch { /* passphrase may have changed */ }
+        } catch { /* key derivation failed, passphrase may have changed */ }
       }
     }
   },
 
-  // ── Publish this channel to Nostr ───────────────────────
+  // ── Subscribe to Nostr channel events ───────────────────
 
-  publishToNostr,
+  async subscribeNostr() {
+    if (!window.CipherNostr || !window.CipherNostr.isReady()) return;
+    for (const id of channelState.joined) {
+      if (channelState.subs[id]) continue;
+      channelState.subs[id] = await window.CipherNostr.subscribeChannel(
+        id, (event) => handleIncomingNostrMessage(id, event)
+      );
+    }
+    // Subscribe to public channel discovery
+    channelState.subs['discovery'] = await subscribeChannelDiscovery();
+  },
+
+  // Return storage key for messages
+  msgKey(channelId) { return 'cipher_msgs_ch_' + channelId; },
 };
+
+// ── AES key derivation (same as before but keyed to channel ID) ──
+
+async function deriveChannelAESKey(passphrase, channelId) {
+  const enc  = new TextEncoder();
+  const base = await crypto.subtle.importKey('raw', enc.encode(passphrase), 'PBKDF2', false, ['deriveKey']);
+  const salt = await crypto.subtle.digest('SHA-256', enc.encode('ciphernet-channel-v2:' + channelId));
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt, iterations: 200000, hash: 'SHA-256' },
+    base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']
+  );
+}
+
+// ── Nostr publish helpers ────────────────────────────────
+
+async function publishChannelCreation(ch) {
+  if (!window.CipherNostr) return null;
+  const content = JSON.stringify({
+    name:    ch.name,
+    about:   ch.description,
+    picture: '',
+    ciphernet: {
+      type:       ch.type,
+      ownerFp:    ch.ownerFp,
+      ownerPub:   ch.ownerPub,
+      passphrase: ch.passphrase,
+      admins:     ch.admins,
+      banned:     ch.banned,
+      archived:   false,
+      version:    2,
+    },
+  });
+  // kind 40 — channel creation
+  return window.CipherNostr.publishRaw(40, content, []);
+}
+
+async function publishChannelUpdate(ch) {
+  if (!window.CipherNostr || !ch.nostrId) return;
+  const content = JSON.stringify({
+    name:    ch.name,
+    about:   ch.description,
+    picture: '',
+    ciphernet: {
+      type:       ch.type,
+      ownerFp:    ch.ownerFp,
+      ownerPub:   ch.ownerPub,
+      passphrase: ch.passphrase,
+      admins:     ch.admins,
+      banned:     ch.banned,
+      archived:   ch.archived,
+      version:    2,
+    },
+  });
+  // kind 41 — channel metadata update
+  return window.CipherNostr.publishRaw(41, content, [['e', ch.nostrId]]);
+}
+
+function publishAdminEvent(channelId, event) {
+  // Store locally
+  const key  = 'cipher_chan_admin_' + channelId;
+  const list = JSON.parse(localStorage.getItem(key) || '[]');
+  list.push(event);
+  localStorage.setItem(key, JSON.stringify(list));
+  // Publish to Nostr (kind 9734) if available
+  if (window.CipherNostr && window.CipherNostr.isReady()) {
+    const content = JSON.stringify(event);
+    window.CipherNostr.publishRaw(9734, content, [['e', channelId]]).catch(() => {});
+  }
+}
+
+async function subscribeChannelDiscovery() {
+  if (!window.CipherNostr) return null;
+  return window.CipherNostr.subscribeRaw({ kinds: [40] }, async (event) => {
+    await Channels.importFromNostr(event);
+  });
+}
+
+async function handleIncomingNostrMessage(channelId, event) {
+  const ch = Channels.get(channelId);
+  if (!ch) return;
+  // Check ban list
+  const users = JSON.parse(localStorage.getItem('cipher_users') || '{}');
+  const sender = Object.values(users).find(u => u.nostrPub === event.pubkey);
+  if (sender && ch.banned.includes(sender.fingerprint)) return;
+  // Pass to app.js handler
+  if (window._channelNostrHandler) window._channelNostrHandler(channelId, event);
+}
 
 // Expose globally
 window.CipherChannels = Channels;

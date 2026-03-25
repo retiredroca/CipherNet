@@ -313,7 +313,58 @@
   --green3: var(--accent3); --green-dim: var(--accent-dim);
 }
 
-/* ─── THEME SWITCHER — in sidebar select, no floating button needed ── */
+/* ─── THEME SWITCHER PANEL ─────────────────────────── */
+.theme-switcher {
+  position: fixed;
+  bottom: 48px;
+  right: 0;
+  z-index: 500;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-right: none;
+  padding: 8px;
+  display: none;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 360px;
+  overflow-y: auto;
+}
+.theme-switcher.open { display: flex; }
+
+.theme-btn {
+  background: none;
+  border: 1px solid transparent;
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 1px;
+  padding: 5px 10px;
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+  transition: all 0.1s;
+}
+.theme-btn:hover   { border-color: var(--border); color: var(--text); }
+.theme-btn.active  { border-color: var(--accent); color: var(--accent); }
+
+.theme-toggle-btn {
+  position: fixed;
+  bottom: 12px;
+  right: 0;
+  z-index: 501;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-right: none;
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 2px;
+  padding: 5px 8px;
+  cursor: pointer;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+}
+.theme-toggle-btn:hover { color: var(--accent); border-color: var(--accent); }
 
 /* ─── RESET ───────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1667,19 +1718,3 @@ button, select, input, textarea {
 }
 .ch-member-row.banned { opacity: 0.5; border-color: #3a0000; }
 .ch-member-name { flex: 1; color: var(--text-dim); }
-
-/* ─── CSP-SAFE UTILITY CLASSES (replaces inline styles) ─ */
-.pq-key-note-text   { margin-top:6px; font-size:11px; color:var(--amber); }
-.theme-select-input { font-size:10px; padding:4px 6px; }
-.mb8  { margin-bottom:8px; }
-.mb6  { margin-bottom:6px; }
-.mb12 { margin-bottom:12px; }
-.mt4  { margin-top:4px; }
-.mt6  { margin-top:6px; }
-.mt8  { margin-top:8px; }
-.mt12 { margin-top:12px; }
-.flex1    { flex:1; }
-.nowrap   { white-space:nowrap; }
-.input-row { display:flex; gap:8px; }
-.danger-label      { color:var(--red); }
-.nostr-pub-display { font-size:10px; max-height:40px; overflow:hidden; }
