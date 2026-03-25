@@ -1121,6 +1121,15 @@ function exportFullBackup() {
   toast('Full backup exported');
 }
 
+function clearAllData() {
+  if (!confirm('CLEAR ALL CIPHER//NET DATA?\n\nThis will delete:\n- Your identity keys\n- All messages\n- All channels\n- All contacts\n- All settings\n\nThis cannot be undone. Export a backup first if you want to save your data.')) return;
+  if (!confirm('CONFIRM: Everything will be permanently erased. Proceed?')) return;
+  localStorage.clear();
+  sessionStorage.clear();
+  toast('All data cleared — reloading...');
+  setTimeout(() => location.reload(), 1500);
+}
+
 function downloadJSON(data, filename) {
   const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
   const a   = Object.assign(document.createElement('a'), { href: url, download: filename });
@@ -1477,6 +1486,7 @@ document.addEventListener('DOMContentLoaded', () => {
   $('dismiss-warn-btn').addEventListener('click', dismissStorageWarning);
   $('btn-export-identity').addEventListener('click', exportIdentity);
   $('btn-export-backup').addEventListener('click', exportFullBackup);
+  $('btn-clear-data').addEventListener('click', clearAllData);
 
   // Channel items are rendered dynamically — listener set in renderChannelList()
   $('btn-channel-manager') && $('btn-channel-manager').addEventListener('click', openChannelModal);
@@ -2324,6 +2334,7 @@ async function promptJoinChannel(ch) {
 
 async function createChannel() {
   if (!state.me) { toast('Sign in first'); return; }
+  if (!window.CipherChannels) { toast('Channels not initialized'); return; }
   const name = $('ch-create-name').value.trim();
   const desc = $('ch-create-desc').value.trim();
   const type = $('ch-create-type').value;

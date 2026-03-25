@@ -611,4 +611,4 @@ async function handleIncomingNostrMessage(channelId, event) {
 }
 
 // Expose globally
-window.CipherChannels = Channels;
+if (!window.CipherChannels) window.CipherChannels = Channels;
