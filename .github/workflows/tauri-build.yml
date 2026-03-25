@@ -48,6 +48,10 @@ jobs:
         working-directory: app/tauri
         run: npm ci
 
+      - name: Install GTK3 (Ubuntu)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev
+
       - name: Build Tauri app
         working-directory: app/tauri
         run: npm run build -- --verbose
