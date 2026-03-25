@@ -48,9 +48,16 @@ jobs:
         working-directory: app/tauri
         run: npm ci
 
-      - name: Install GTK3 and JavaScriptCore (Ubuntu)
+      - name: Install Tauri system dependencies (Ubuntu)
         if: matrix.platform == 'ubuntu-22.04'
-        run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libjavascriptcoregtk-4.1-dev
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgtk-3-dev \
+            libjavascriptcoregtk-4.1-dev \
+            libsoup-3.0-dev \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev
 
       - name: Build Tauri app
         working-directory: app/tauri
