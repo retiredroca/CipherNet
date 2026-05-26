@@ -60,7 +60,7 @@ Built to run on [OnionShare](https://onionshare.org/), installable as a PWA, and
 ```
 index.html           — markup only, no inline scripts or styles
 app.css              — all styles
-lib/                 — modular JS: crypto, state, render, messaging, lock-screen, identity, PGP, Nostr UI, channels UI, theme, deterrents, boot
+lib/                 — modular JS (13 modules): crypto, state, render, messaging, lock-screen, identity, PGP, Nostr UI, channels UI, theme, deterrents, boot
 sw.js                — service worker: offline caching
 manifest.json        — PWA manifest: name, icons, display mode
 icon-192.png         — home screen icon (192×192)
@@ -69,7 +69,16 @@ embed-fonts.py       — optional: bakes fonts as base64 for fully offline use
 openpgp.min.js       — OpenPGP.js v5 (download separately — see GET_OPENPGP.md)
 GET_OPENPGP.md       — download instructions for openpgp.min.js
 README.md            — this file
-landing.html         — GitHub Pages landing page (rename to index.html in repo root)
+landing.html         — GitHub Pages landing page
+channels.js          — Nostr channels module (global window.CipherChannels)
+nostr.js             — Nostr protocol module (global window.CipherNostr)
+ml-dsa.js            — ML-DSA signature scheme (PQ)
+ml-kem.js            — ML-KEM key encapsulation (PQ)
+noble-post-quantum.js— bundled noble post-quantum library
+noble-pq-wrap.js     — PQ library wrapper
+secp256k1.js         — secp256k1 for Nostr
+download-noble-pq.sh — download helper for offline noble-post-quantum
+tauri/               — Tauri desktop wrapper (Rust)
 ```
 
 > **Post-quantum library** (`@noble/post-quantum`) loads automatically from esm.sh CDN — no local file required for online deployments. For offline/OnionShare use, see `GET_OPENPGP.md`.
