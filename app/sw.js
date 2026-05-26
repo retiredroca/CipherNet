@@ -5,13 +5,24 @@ const ASSETS = [
   './',
   './index.html',
   './app.css',
-  './app.js',
+  './lib/crypto.js',
+  './lib/util.js',
+  './lib/state.js',
+  './lib/render.js',
+  './lib/messaging.js',
+  './lib/lock-screen.js',
+  './lib/identity.js',
+  './lib/deterrents.js',
+  './lib/theme.js',
+  './lib/pgp-ui.js',
+  './lib/nostr-ui.js',
+  './lib/channel-ui.js',
+  './lib/boot.js',
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
 ];
 
-// Install — cache all static assets
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE)
@@ -20,7 +31,6 @@ self.addEventListener('install', e => {
   );
 });
 
-// Activate — delete old caches
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys().then(keys =>
@@ -29,9 +39,7 @@ self.addEventListener('activate', e => {
   );
 });
 
-// Fetch — cache-first, fall back to network
 self.addEventListener('fetch', e => {
-  // Only handle same-origin GET requests
   if (e.request.method !== 'GET') return;
   if (!e.request.url.startsWith(self.location.origin)) return;
 
@@ -39,7 +47,6 @@ self.addEventListener('fetch', e => {
     caches.match(e.request).then(cached => {
       if (cached) return cached;
       return fetch(e.request).then(response => {
-        // Cache valid responses
         if (response && response.status === 200) {
           const clone = response.clone();
           caches.open(CACHE).then(cache => cache.put(e.request, clone));

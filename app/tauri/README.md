@@ -8,7 +8,7 @@ tauri/
 ├── package.json
 ├── web/                     ← Web app files (created by setup.sh)
 │   ├── index.html
-│   ├── app.js
+│   ├── lib/
 │   ├── app.css
 │   ├── channels.js
 │   ├── nostr.js

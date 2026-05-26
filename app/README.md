@@ -60,7 +60,7 @@ Built to run on [OnionShare](https://onionshare.org/), installable as a PWA, and
 ```
 index.html           — markup only, no inline scripts or styles
 app.css              — all styles
-app.js               — all application logic and crypto
+lib/                 — modular JS: crypto, state, render, messaging, lock-screen, identity, PGP, Nostr UI, channels UI, theme, deterrents, boot
 sw.js                — service worker: offline caching
 manifest.json        — PWA manifest: name, icons, display mode
 icon-192.png         — home screen icon (192×192)
@@ -79,7 +79,7 @@ landing.html         — GitHub Pages landing page (rename to index.html in repo
 ## Hosting on OnionShare
 
 1. Open OnionShare → **Publish website**
-2. Add `index.html`, `app.css`, `app.js`, and `openpgp.min.js`
+2. Add `index.html`, `app.css`, the `lib/` folder, `openpgp.min.js`, `channels.js`, and `nostr.js`
 3. Start — share the `.onion` address
 
 No Python, no Node, no configuration. Zero external requests. Fully compliant with OnionShare's strict Content Security Policy (`default-src 'self'`).
@@ -249,6 +249,6 @@ All message content is stored as ciphertext. Public keys and fingerprints are in
 
 ## License
 
-MIT License — see [LICENSE](LICENSE).
+AGPL-3.0 License — see [LICENSE](LICENSE).
 
 Free to use, modify, and distribute for any purpose. Attribution appreciated but not required.
