@@ -13,10 +13,13 @@ Built to run on [OnionShare](https://onionshare.org/), installable as a PWA, and
 - **Private key shown once** — your signing private key is displayed at registration and immediately discarded from memory. It is never stored anywhere.
 - **Lock screen gate** — the entire chat UI is hidden until you authenticate with a valid keypair. Nothing is accessible without a key.
 - **Returning user detection** — if a fingerprint is found in localStorage, the import tab opens automatically with your handle pre-filled.
+- **Guest mode** — jump in instantly with a temporary in-memory identity. Nothing is saved until you persist it; a sidebar banner marks the session TEMPORARY GUEST.
+- **Persist identity** — save a guest identity to the browser with a 24-word BIP-39 recovery phrase (PBKDF2-SHA-256, 600k iterations + AES-256-GCM → `cipher_identity_pack`). The phrase is shown once and never stored; a **UNLOCK** tab appears on the lock screen whenever a saved identity is detected.
 - **Password-protected key export** — optionally encrypt your private key before copying. AES-256-GCM, PBKDF2-SHA-256, 300,000 iterations. Stored as `CIPHER-ENC:v1:...` — useless without the password. Import tab detects encrypted keys automatically.
 
 ### Encryption
-- **Channel encryption** — all channel messages encrypted with AES-256-GCM. A shared passphrase is required to read or send. Key derived via PBKDF2 (200,000 iterations, SHA-256) with a deterministic per-channel salt.
+- **Channel encryption** — all channel messages encrypted with AES-256-GCM. A shared passphrase is required to read or send. Key derived via PBKDF2 (600,000 iterations, SHA-256) with a deterministic per-channel salt. Pre-upgrade channels using the old 200,000 iterations are detected automatically (test-decrypt of the oldest stored message).
+- **Open channels** — passphrase-less channels derive a deterministic public AES key from the unified channel id (`SHA-256("ciphernet-channel-v2:<name>:<ownerFingerprint>")`), so anyone can read and send without a shared secret.
 - **Post-quantum DM encryption** — DMs use ML-KEM-768 (FIPS 203) key encapsulation by default. Alice encapsulates to Bob's public key, Bob decapsulates — no shared secret is ever transmitted. Shared secret fed through HKDF-SHA256 → AES-256-GCM.
 - **Classical DM encryption** — ECDH P-256 key exchange for classical-mode users. Both parties independently derive the same AES-256-GCM key.
 - **Message signing** — every message is signed with your private key and verified on receipt. Displays ✓ SIGNED or ✗ INVALID. Default: ML-DSA-65 (FIPS 204). Classical: ECDSA P-256/P-384 or RSA-PSS 2048.
@@ -39,7 +42,7 @@ Built to run on [OnionShare](https://onionshare.org/), installable as a PWA, and
 - **Right-click blocked** — context menu suppressed on the entire page.
 - **Screen blanking** — screen goes black when the window loses focus (alt-tab, switching apps). Returns instantly on refocus.
 - **PrintScreen warning** — `// SCREENSHOT DETECTED` overlay on Print Screen. Note: OS-level screenshots cannot be blocked — this is a deterrent only.
-- **Keyboard shortcuts suppressed** — Ctrl+S, Ctrl+U, Ctrl+P, F12 blocked.
+- **Keyboard shortcuts suppressed** — Ctrl+S, Ctrl+U, Ctrl+P, F12, and Ctrl+Shift+I/J/C (developer tools) blocked.
 
 ### Identity Management
 - **Export public identity** — share your handle, public signing key, and DM public key as JSON. Safe to distribute.
@@ -61,7 +64,7 @@ Built to run on [OnionShare](https://onionshare.org/), installable as a PWA, and
 app/
 ├── index.html           — markup only, no inline scripts or styles
 ├── app.css              — all styles
-├── lib/                 — modular JS (13 modules): crypto, state, render, messaging, lock-screen, identity, PGP, Nostr UI, channels UI, theme, deterrents, boot
+├── lib/                 — modular JS (15 modules): crypto, util, state, wordlist, render, messaging, lock-screen, guest, identity, deterrents, theme, pgp-ui, nostr-ui, channel-ui, boot
 ├── sw.js                — service worker: offline caching
 ├── manifest.json        — PWA manifest: name, icons, display mode
 ├── icon-192.png         — home screen icon (192×192)
@@ -77,7 +80,7 @@ app/
 ├── noble-pq-wrap.js     — PQ library wrapper
 ├── secp256k1.js         — secp256k1 for Nostr
 ├── download-noble-pq.sh — download helper for offline noble-post-quantum
-├── tauri/               — Tauri desktop wrapper (Rust)
+├── tauri/               — Tauri desktop wrapper (Rust) — `npm run build` in `app/tauri` refreshes the embedded `web/` snapshot first
 ├── README.md            — app-level documentation
 index.html          — GitHub Pages landing page
 AGENTS.md           — AI agent instructions for this repo
@@ -157,7 +160,7 @@ Makes a one-time request from your machine to Google Fonts, then splices the fon
 
 ### Channel encryption
 
-PBKDF2-SHA-256 (200,000 iterations) derives an AES-256-GCM key from a shared passphrase. Salt: `SHA-256("cipher-channel:<channel>")`. Each message has a fresh random 12-byte IV. The entire signed envelope is encrypted — only the author hint (6 hex chars of fingerprint) is stored in plaintext.
+PBKDF2-SHA-256 (600,000 iterations; the legacy 200,000 is auto-detected by test-decrypting the oldest stored message) derives an AES-256-GCM key from a shared passphrase. Salt: `SHA-256("cipher-channel:<channel>")`. Passphrase-less open channels instead use a deterministic public AES key derived from the unified channel id (`ciphernet-channel-v2:<name>:<ownerFingerprint>`) — no shared secret. Each message has a fresh random 12-byte IV. The entire signed envelope is encrypted — only the author hint (6 hex chars of fingerprint) is stored in plaintext.
 
 ### Password-protected key export
 
@@ -185,7 +188,7 @@ Larger keys are inherent to lattice-based PQ cryptography — this is expected.
 
 | Property | Status |
 |---|---|
-| Channel encryption | ✓ AES-256-GCM · PBKDF2-SHA-256 · 200k iterations |
+| Channel encryption | ✓ AES-256-GCM · PBKDF2-SHA-256 · 600k iterations (legacy 200k auto-detect) |
 | DM encryption (default) | ✓ ML-KEM-768 + HKDF + AES-256-GCM · quantum-resistant |
 | DM encryption (classical) | ✓ ECDH P-256 + AES-256-GCM |
 | Message signing (default) | ✓ ML-DSA-65 · FIPS 204 · quantum-resistant |
@@ -203,6 +206,11 @@ Larger keys are inherent to lattice-based PQ cryptography — this is expected.
 ---
 
 ## Recovering your identity
+
+**Recovery phrase (guests / saved identity):**
+1. On the lock screen a **UNLOCK** tab appears whenever a saved identity pack is detected
+2. Enter your 24-word recovery phrase — no key pasting required
+3. Identity, DM keys, and channel history restore from the encrypted pack
 
 **Signing back in (same device):**
 1. Go to the **Import Key** tab
@@ -255,6 +263,12 @@ Requires `openpgp.min.js` — see `GET_OPENPGP.md` for download instructions. Th
 | `cipher_dh_<fingerprint>` | ECDH private key — classical DM encryption (AES-GCM wrapped) |
 | `cipher_pqkem_<fingerprint>` | ML-KEM-768 secret key — PQ DM encryption (AES-GCM wrapped) |
 | `cipher_my_fingerprint` | Last authenticated fingerprint (for returning user detection) |
+| `cipher_identity_pack` | Encrypted identity saved from guest mode — PBKDF2 600k + AES-256-GCM, unlocked with the 24-word recovery phrase |
+| `cipher_archived_channels` | Archived channel tombstones (id + handle), skipped on import/browse |
+| `cipher_joined_channels` | Joined channel records: name, owner, type, wrapped passphrase for repeat entries |
+| `cipher_nostr_priv` / `cipher_nostr_pub` | Nostr transport keypair (private key wrapped, identity-bound) |
+| `cipher_nostr_wrap` | Wrapper secret for the Nostr transport private key |
+| `cipher_nostr_relays` | Relay list, including user-added relays |
 
 All message content is stored as ciphertext. Public keys and fingerprints are in plaintext.
 
