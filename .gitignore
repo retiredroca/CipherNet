@@ -1,5 +1,8 @@
 # CipherNet
 
+# Local helper scripts
+oc.sh
+
 # CDN libraries (download separately)
 openpgp.min.js
 
