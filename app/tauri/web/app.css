@@ -1652,6 +1652,17 @@ button, select, input, textarea {
   font-size: 11px;
 }
 
+/* Buttons inside relay rows / the ADD control must not stretch — the
+   global .btn-tiny is width:100% for the sidebar, which would steal the
+   row width from the relay URL. */
+.nostr-relay-row .btn-tiny,
+#nostr-relay-add.btn-tiny {
+  width: auto;
+  flex-shrink: 0;
+  white-space: nowrap;
+  text-align: center;
+}
+
 .nostr-relay-dot {
   width: 7px; height: 7px;
   border-radius: 50%;
@@ -1673,6 +1684,7 @@ button, select, input, textarea {
 
 .nostr-relay-url {
   flex: 1;
+  min-width: 0;            /* allow ellipsis to shrink inside the flex row */
   color: var(--text-dim);
   overflow: hidden;
   text-overflow: ellipsis;
