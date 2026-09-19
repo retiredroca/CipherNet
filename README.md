@@ -94,13 +94,89 @@ LICENSE             — AGPL-3.0
 
 ## Hosting on OnionShare
 
-1. Open OnionShare → **Publish website**
-2. Add the entire `app/` directory — or at minimum `app/index.html`, `app/app.css`, `app/lib/`, `app/openpgp.min.js`, `app/channels.js`, and `app/nostr.js`
-3. Start — share the `.onion` address
+CIPHER//NET is designed to run natively on OnionShare with **zero external
+requests**, making it fully compliant with OnionShare's strict CSP
+(`default-src 'self'`).
 
-No Python, no Node, no configuration. Zero external requests. Fully compliant with OnionShare's strict Content Security Policy (`default-src 'self'`).
+### Quick Start
 
-> **Note:** Post-quantum crypto requires internet access to load from esm.sh CDN. On OnionShare/offline, select a classical algorithm (ECDSA P-256, P-384, or RSA-PSS) instead.
+1. **Download OnionShare** — <https://onionshare.org/> (Linux/macOS/Windows)
+
+2. **Open OnionShare** → click **Publish website** (not "Serve files")
+
+3. **Add the `app/` directory** — drag the entire `app/` folder, or at minimum:
+   ```
+   app/
+   ├── index.html
+   ├── app.css
+   ├── manifest.json
+   ├── sw.js
+   ├── icon-192.png
+   ├── icon-512.png
+   ├── openpgp.min.js       # required for PGP features
+   ├── channels.js
+   ├── nostr.js
+   ├── secp256k1.js         # required for Nostr
+   ├── lib/
+   │   ├── crypto.js
+   │   ├── util.js
+   │   ├── state.js
+   │   ├── wordlist.js
+   │   ├── render.js
+   │   ├── messaging.js
+   │   ├── lock-screen.js
+   │   ├── identity.js
+   │   ├── deterrents.js
+   │   ├── theme.js
+   │   ├── pgp-ui.js
+   │   ├── nostr-ui.js
+   │   ├── channel-ui.js
+   │   ├── boot.js
+   │   └── guest.js
+   └── THIRD-PARTY-LICENSES.md
+   ```
+   (Optional for full offline: `ml-dsa.js`, `ml-kem.js`, `noble-post-quantum.js`,
+   `noble-pq-wrap.js`, `ml-dsa.js`, `ml-kem.js` — see **Post-Quantum Offline** below)
+
+4. **Start** — OnionShare gives you a `.onion` address (v3). Share it.
+
+5. **Open in Tor Browser** — the address only works in Tor Browser.
+
+### Tor Browser Settings
+
+- **Security Level**: *Standard* or *Safer* (Safest disables JavaScript — **will not work**)
+- HTTPS is not required for `.onion` addresses; Web Crypto API works on `.onion`
+
+### Post-Quantum Crypto Offline
+
+By default, the app loads ML-DSA-65 / ML-KEM-768 from `esm.sh` CDN (requires internet).
+
+**For fully offline OnionShare use** (no external requests):
+1. Include the bundled PQ files in your OnionShare folder:
+   - `noble-post-quantum.js` (or `ml-dsa.js` + `ml-kem.js` + `noble-pq-wrap.js`)
+2. On first load, the app will detect the local files and use them automatically
+3. In the **Generate Keys** tab, select **ML-DSA-65** — it will work without any CDN fetch
+
+### Service Worker & Caching
+
+- The app includes a Service Worker (`sw.js`) for offline use after first load
+- Cache name: `ciphernet-v9` — bump this when updating files
+- On first visit, assets are cached; subsequent visits work fully offline
+
+### CSP Compliance
+
+- No inline scripts/styles, no external CDNs, no `eval()`
+- All scripts loaded via `<script src>` from local files
+- Web Crypto API (`crypto.subtle`) works on `.onion` in Tor Browser
+
+### Common Issues
+
+| Problem | Fix |
+|---------|-----|
+| "Web Crypto API unavailable" | Use Tor Browser (not regular Firefox/Chrome), ensure `.onion` address |
+| PQ keys fail to generate | Include local PQ bundles (`noble-post-quantum.js` etc.) or select ECDSA |
+| Nostr relays won't connect | Add `ws://` onion relays in Nostr settings; clearnet `wss://` may be blocked |
+| "Invalid signature" on import | Ensure the private key PEM includes `-----BEGIN PRIVATE KEY-----` lines |
 
 > Use **Publish website** mode, not "Serve files".
 
