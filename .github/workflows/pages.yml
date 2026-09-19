@@ -3,7 +3,7 @@ name: Deploy CIPHER//NET GitHub Pages
 # Pages deploys are opt-in only — never on every commit/push.
 # Deploy when:
 #   - manually run with the "deploy" input checked (Actions → this workflow), or
-#   - a commit to main contains "[pages]" in its message.
+#   - a commit to main contains "release" in its message.
 # Requires repo Settings → Pages → Source: "GitHub Actions".
 
 on:
@@ -30,7 +30,7 @@ jobs:
   build:
     if: >
       (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy == 'true') ||
-      (github.event_name == 'push' && contains(github.event.head_commit.message, '[pages]'))
+      (github.event_name == 'push' && contains(github.event.head_commit.message, 'release'))
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
