@@ -172,16 +172,50 @@ async function nip44Decrypt(b64payload, recipientPrivHex, senderPubHex) {
 }
 
 // ── Relay management ─────────────────────────────────────
+// Static (built-in) relays always exist and can only be DISABLED, never
+// removed. User-added relays can be toggled and removed. The enabled set
+// used for connecting is configuredRelays − disabledRelays.
+//
+//   cipher_nostr_relays        → array, all configured relays (defaults + user-added)
+//   cipher_nostr_disabled      → array, URLs currently toggled off
 
-function getRelayList() {
+const RELAY_CONFIG_KEY   = 'cipher_nostr_relays';
+const RELAY_DISABLED_KEY = 'cipher_nostr_disabled';
+
+function isStaticRelay(url) {
+  return DEFAULT_RELAYS.includes(url);
+}
+
+function getDisabledRelays() {
   try {
-    const stored = localStorage.getItem('cipher_nostr_relays');
-    return stored ? JSON.parse(stored) : [...DEFAULT_RELAYS];
+    const d = JSON.parse(localStorage.getItem(RELAY_DISABLED_KEY) || '[]');
+    return Array.isArray(d) ? d : [];
+  } catch { return []; }
+}
+
+function saveDisabledRelays(list) {
+  localStorage.setItem(RELAY_DISABLED_KEY, JSON.stringify(list));
+}
+
+// All configured relays: static defaults are always present (a list left
+// empty by older builds self-heals back to defaults).
+function getConfiguredRelays() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(RELAY_CONFIG_KEY) || '[]');
+    const configured = Array.isArray(stored) ? stored : [];
+    return Array.from(new Set([...configured, ...DEFAULT_RELAYS]));
   } catch { return [...DEFAULT_RELAYS]; }
 }
 
 function saveRelayList(relays) {
-  localStorage.setItem('cipher_nostr_relays', JSON.stringify(relays));
+  localStorage.setItem(RELAY_CONFIG_KEY, JSON.stringify(relays));
+}
+
+// Enabled relays — the ones actually connected/used for traffic.
+function getRelayList() {
+  const enabled  = getConfiguredRelays();
+  const disabled = new Set(getDisabledRelays());
+  return enabled.filter(u => !disabled.has(u));
 }
 
 function connectRelay(url) {
@@ -384,17 +418,36 @@ const Nostr = {
 
   getRelayList,
   saveRelayList,
-
-  addRelay(url) {
-    const list = getRelayList();
-    if (!list.includes(url)) { list.push(url); saveRelayList(list); }
-    connectRelay(url);
+  getConfiguredRelays,
+  isStaticRelay,
+  isRelayEnabled(url) {
+    return !getDisabledRelays().includes(url);
   },
 
+  addRelay(url) {
+    const list = getConfiguredRelays();
+    if (!list.includes(url)) { list.push(url); saveRelayList(list); }
+    this.toggleRelay(url, true); // ensure enabled then connect
+  },
+
+  toggleRelay(url, enabled) {
+    const disabled = getDisabledRelays().filter(u => u !== url);
+    if (!enabled) disabled.push(url);
+    saveDisabledRelays(Array.from(new Set(disabled)));
+    if (enabled) connectRelay(url);
+    else disconnectRelay(url);
+  },
+
+  // Static relays cannot be removed — only disabled.
   removeRelay(url) {
-    const list = getRelayList().filter(u => u !== url);
-    saveRelayList(list);
+    if (isStaticRelay(url)) {
+      console.warn('[Nostr] Static relay cannot be removed — disable it instead:', url);
+      return false;
+    }
+    saveRelayList(getConfiguredRelays().filter(u => u !== url));
+    saveDisabledRelays(getDisabledRelays().filter(u => u !== url));
     disconnectRelay(url);
+    return true;
   },
 
   // Publish a CIPHER//NET channel message via NIP-28 (kind 42)

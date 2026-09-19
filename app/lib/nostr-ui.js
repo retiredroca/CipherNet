@@ -36,24 +36,51 @@ window.CipherNet = window.CipherNet || {};
     const list = $('nostr-relay-list');
     if (!list || !window.CipherNostr) return;
     list.innerHTML = '';
-    const relays = window.CipherNostr.getRelayList();
-    const status = window.CipherNostr.getStatus();
-    relays.forEach(url => {
-      const st  = status[url] || 'disconnected';
+
+    const configured = window.CipherNostr.getConfiguredRelays();
+    if (!configured.length) {
+      const empty = document.createElement('div');
+      empty.className = 'nostr-relay-empty';
+      empty.textContent = 'No relays configured — add one below.';
+      list.appendChild(empty);
+      return;
+    }
+
+    configured.forEach(url => {
+      const st      = (window.CipherNostr.getStatus() || {})[url] || 'disconnected';
+      const enabled = window.CipherNostr.isRelayEnabled(url);
+      const isStat  = window.CipherNostr.isStaticRelay(url);
+
       const row = document.createElement('div');
       row.className = 'nostr-relay-row';
+
       const dot = document.createElement('span');
-      dot.className = 'nostr-relay-dot ' + st;
+      dot.className = 'nostr-relay-dot ' + (enabled ? st : 'disabled');
+
       const lbl = document.createElement('span');
-      lbl.className = 'nostr-relay-url'; lbl.textContent = url;
-      lbl.title = st;
-      const rm = document.createElement('button');
-      rm.className = 'btn-tiny danger'; rm.textContent = 'REMOVE';
-      rm.addEventListener('click', () => {
-        window.CipherNostr.removeRelay(url);
+      lbl.className = 'nostr-relay-url';
+      lbl.textContent = url + (isStat ? '  [static]' : '');
+      lbl.title = enabled ? st : 'disabled';
+
+      const tog = document.createElement('button');
+      tog.className = 'btn-tiny ' + (enabled ? 'danger' : 'highlight');
+      tog.textContent = enabled ? 'DISABLE' : 'ENABLE';
+      tog.addEventListener('click', () => {
+        window.CipherNostr.toggleRelay(url, !window.CipherNostr.isRelayEnabled(url));
         renderRelayList();
       });
-      row.appendChild(dot); row.appendChild(lbl); row.appendChild(rm);
+
+      row.appendChild(dot); row.appendChild(lbl); row.appendChild(tog);
+
+      if (!isStat) {
+        const rm = document.createElement('button');
+        rm.className = 'btn-tiny danger'; rm.textContent = 'REMOVE';
+        rm.addEventListener('click', () => {
+          window.CipherNostr.removeRelay(url);
+          renderRelayList();
+        });
+        row.appendChild(rm);
+      }
       list.appendChild(row);
     });
   }

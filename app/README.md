@@ -263,7 +263,8 @@ Requires `openpgp.min.js` — see `GET_OPENPGP.md` for download instructions. Th
 | `cipher_joined_channels` | Joined channel records: name, owner, type, wrapped passphrase for repeat entries |
 | `cipher_nostr_priv` / `cipher_nostr_pub` | Nostr transport keypair (private key wrapped, identity-bound) |
 | `cipher_nostr_wrap` | Wrapper secret for the Nostr transport private key |
-| `cipher_nostr_relays` | Relay list, including user-added relays |
+| `cipher_nostr_relays` | Configured relay list (built-in static + user-added) |
+| `cipher_nostr_disabled` | Relays toggled off — static relays can only be disabled, never removed |
 
 All message content is stored as ciphertext. Public keys and fingerprints are in plaintext.
 
