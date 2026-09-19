@@ -2,6 +2,7 @@
 
 # Local helper scripts
 oc.sh
+AGENTS.md
 
 # CDN libraries (download separately)
 openpgp.min.js
