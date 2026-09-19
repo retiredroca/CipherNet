@@ -35,7 +35,7 @@ Built to run on [OnionShare](https://onionshare.org/), installable as a PWA, and
 - **Export PGP keypair** — generate an RSA-4096 OpenPGP keypair tied to your handle. Export `.asc` files importable directly into GPG or Kleopatra. Optional passphrase protection.
 - **Import existing GPG key** — paste any armored GPG private key (RSA, ECC, protected or unprotected).
 - **Encrypt & decrypt messages** — PGP-encrypt for any recipient (paste their public key), signed with your key. Decrypt with signature verification. Fully interoperable with GPG, Kleopatra, Thunderbird.
-- Requires `openpgp.min.js` — see `GET_OPENPGP.md`.
+- Requires `openpgp.min.js` — see [`GET_OPENPGP.md`](GET_OPENPGP.md).
 
 ### Privacy Deterrents
 - **No text selection** — chat content cannot be selected or copied.
@@ -70,7 +70,7 @@ app/
 ├── icon-192.png         — home screen icon (192×192)
 ├── icon-512.png         — high-res icon / splash screen (512×512)
 ├── embed-fonts.py       — optional: bakes fonts as base64 for fully offline use
-├── openpgp.min.js       — OpenPGP.js v5 (download separately — see GET_OPENPGP.md)
+├── openpgp.min.js       — OpenPGP.js v5 (download separately — see [`GET_OPENPGP.md`](GET_OPENPGP.md))
 ├── GET_OPENPGP.md       — download instructions for openpgp.min.js
 ├── channels.js          — Nostr channels module (global window.CipherChannels)
 ├── nostr.js             — Nostr protocol module (global window.CipherNostr)
@@ -81,14 +81,13 @@ app/
 ├── secp256k1.js         — secp256k1 for Nostr
 ├── download-noble-pq.sh — download helper for offline noble-post-quantum
 ├── tauri/               — Tauri desktop wrapper (Rust) — `npm run build` in `app/tauri` refreshes the embedded `web/` snapshot first
-├── README.md            — app-level documentation
 index.html          — GitHub Pages landing page
 AGENTS.md           — AI agent instructions for this repo
 oc.sh               — shell helper
 LICENSE             — AGPL-3.0
 ```
 
-> **Post-quantum library** (`@noble/post-quantum`) loads automatically from esm.sh CDN — no local file required for online deployments. For offline/OnionShare use, see `app/GET_OPENPGP.md`.
+> **Post-quantum library** (`@noble/post-quantum`) loads automatically from esm.sh CDN — no local file required for online deployments. For offline/OnionShare use, see [`GET_OPENPGP.md`](GET_OPENPGP.md).
 
 ---
 
@@ -323,7 +322,7 @@ Requires Web Crypto API: Firefox, Chrome, Brave, Safari, Tor Browser.
 
 ## PGP / GPG / Kleopatra
 
-Requires `openpgp.min.js` — see `GET_OPENPGP.md` for download instructions. The sidebar shows four PGP buttons once signed in:
+Requires `openpgp.min.js` — see [`GET_OPENPGP.md`](GET_OPENPGP.md) for download instructions. The sidebar shows four PGP buttons once signed in:
 
 **PGP EXPORT KEYPAIR** — generates RSA-4096 OpenPGP keypair. Optional UID and passphrase. Downloads `public.asc` and `secret.asc`.
 - Kleopatra: File → Import → `secret.asc`

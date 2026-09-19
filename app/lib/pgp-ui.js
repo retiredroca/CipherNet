@@ -31,7 +31,7 @@ window.CipherNet = window.CipherNet || {};
 
   function pgpAvailable() {
     if (typeof openpgp === 'undefined') {
-      toast('openpgp.min.js not loaded \u2014 see GET_OPENPGP.md');
+      toast('openpgp.min.js not loaded — see <a href="https://github.com/retiredroca/CipherNet/blob/main/GET_OPENPGP.md" target="_blank" rel="noopener">GET_OPENPGP.md</a>');
       return false;
     }
     return true;

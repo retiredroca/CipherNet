@@ -22,7 +22,6 @@ const EXCLUDE = new Set([
   '.github',
   'landing.html',       // duplicated by the GitHub Pages landing at repo root
   'README.md',
-  'GET_OPENPGP.md',
   'download-noble-pq.sh',
   'embed-fonts.py',
   '.git',
