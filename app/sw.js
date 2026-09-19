@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE = 'ciphernet-v8';
+const CACHE = 'ciphernet-v9';
 const ASSETS = [
   './',
   './index.html',
@@ -49,6 +49,25 @@ self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
   if (!e.request.url.startsWith(self.location.origin)) return;
 
+  // Navigation requests (top-level page loads) → network-first, no offline fallback.
+  // This guarantees visitors always get the fresh HTML after a deploy.
+  if (e.request.mode === 'navigate') {
+    e.respondWith(
+      fetch(e.request)
+        .then(response => {
+          // Only cache successful responses for subsequent subresource loads.
+          if (response && response.status === 200) {
+            const clone = response.clone();
+            caches.open(CACHE).then(cache => cache.put(e.request, clone));
+          }
+          return response;
+        })
+        .catch(() => caches.match(e.request))
+    );
+    return;
+  }
+
+  // All other requests (scripts, styles, images) → cache-first.
   e.respondWith(
     caches.match(e.request).then(cached => {
       if (cached) return cached;

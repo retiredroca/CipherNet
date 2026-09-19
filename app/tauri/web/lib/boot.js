@@ -16,7 +16,8 @@ window.CipherNet = window.CipherNet || {};
 
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js')
+      navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })
+        .then(reg => reg.update())
         .catch(err => console.warn('SW registration failed:', err));
     });
   }
