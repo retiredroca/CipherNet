@@ -179,6 +179,8 @@ By default, the app loads ML-DSA-65 / ML-KEM-768 from `esm.sh` CDN (requires int
 
 > Use **Publish website** mode, not "Serve files".
 
+> **⚠ Security Disclaimer:** This software has not been independently audited. Do not rely on it where your safety or legal exposure depends on it.
+
 ---
 
 ## Hosting elsewhere
