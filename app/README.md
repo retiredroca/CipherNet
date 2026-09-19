@@ -69,7 +69,6 @@ embed-fonts.py       — optional: bakes fonts as base64 for fully offline use
 openpgp.min.js       — OpenPGP.js v5 (download separately — see GET_OPENPGP.md)
 GET_OPENPGP.md       — download instructions for openpgp.min.js
 README.md            — this file
-landing.html         — GitHub Pages landing page
 channels.js          — Nostr channels module (global window.CipherChannels)
 nostr.js             — Nostr protocol module (global window.CipherNostr)
 ml-dsa.js            — ML-DSA signature scheme (PQ)

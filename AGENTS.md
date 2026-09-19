@@ -11,21 +11,24 @@ Self-hosted, end-to-end encrypted chat. No servers, no accounts. Static HTML/JS 
 
 ## Module Dependency Order (load order in index.html)
 1. `openpgp.min.js` — global `openpgp`
-2. `channels.js` — global `window.CipherChannels`
-3. `nostr.js` — global `window.CipherNostr`
-4. `lib/crypto.js` — `CipherNet.Crypto` (pure crypto)
-5. `lib/util.js` — `CipherNet.Util` ($, toast, escHtml, helpers)
-6. `lib/state.js` — `CipherNet.State` (state object, getStoredUsers)
-7. `lib/render.js` — `CipherNet.Render` (renderMessage, updateMsgInput, etc.)
-8. `lib/messaging.js` — `CipherNet.Messaging` (send/receive/persist/DMs)
-9. `lib/lock-screen.js` — `CipherNet.LockScreen` (generate/import/enter)
-10. `lib/identity.js` — `CipherNet.Identity` (export/backup/file import)
-11. `lib/deterrents.js` — `CipherNet.Deterrents` (screen/PrintScreen/kbd blocking)
-12. `lib/theme.js` — `CipherNet.Theme` (theme switcher + own DOMContentLoaded)
-13. `lib/pgp-ui.js` — `CipherNet.PGP` (PGP modal + own DOMContentLoaded)
-14. `lib/nostr-ui.js` — `CipherNet.NostrUI` (Nostr UI + own DOMContentLoaded)
-15. `lib/channel-ui.js` — `CipherNet.ChannelUI` (channel manager + own DOMContentLoaded)
-16. `lib/boot.js` — `CipherNet.Boot` (core DOMContentLoaded, SW registration)
+2. `secp256k1.js` — vendored global `window.nobleSecp256k1` (`{schnorr, secp256k1}`)
+3. `channels.js` — global `window.CipherChannels`
+4. `nostr.js` — global `window.CipherNostr`
+5. `lib/crypto.js` — `CipherNet.Crypto` (pure crypto)
+6. `lib/util.js` — `CipherNet.Util` ($, toast, escHtml, helpers)
+7. `lib/state.js` — `CipherNet.State` (state object, getStoredUsers)
+8. `lib/wordlist.js` — `CipherNet.Bip39` (BIP-39 recovery phrases)
+9. `lib/render.js` — `CipherNet.Render` (renderMessage, updateMsgInput, etc.)
+10. `lib/messaging.js` — `CipherNet.Messaging` (send/receive/persist/DMs)
+11. `lib/lock-screen.js` — `CipherNet.LockScreen` (generate/import/enter)
+12. `lib/guest.js` — `CipherNet.Guest` (temporary guest entry, recovery-phrase persist/unlock)
+13. `lib/identity.js` — `CipherNet.Identity` (export/backup/file import)
+14. `lib/deterrents.js` — `CipherNet.Deterrents` (screen/PrintScreen/kbd blocking)
+15. `lib/theme.js` — `CipherNet.Theme` (theme switcher + own DOMContentLoaded)
+16. `lib/pgp-ui.js` — `CipherNet.PGP` (PGP modal + own DOMContentLoaded)
+17. `lib/nostr-ui.js` — `CipherNet.NostrUI` (Nostr UI + own DOMContentLoaded)
+18. `lib/channel-ui.js` — `CipherNet.ChannelUI` (channel manager + own DOMContentLoaded)
+19. `lib/boot.js` — `CipherNet.Boot` (core DOMContentLoaded, SW registration)
 
 ## Key Conventions
 - `$('id')` — shorthand for `document.getElementById`
@@ -51,5 +54,8 @@ Open browser console, check for errors. Exercise:
 7. Channel create/join/settings
 
 ## Known Issues
-- Nostr secp256k1 private key stored as plain base64 in localStorage (`cipher_nostr_priv`) — should be encrypted with PBKDF2+AES
-- Post-quantum lib loads from esm.sh CDN (external request) — bundle offline for true zero-external-dependency
+- Post-quantum lib prefers esm.sh CDN first, then falls back to the bundled local files (`noble-post-quantum.js`, `ml-dsa.js`, `ml-kem.js`, `noble-pq-wrap.js`) — a build that tries esm.sh ONLY (removing the local fallback) is the remaining external-request. Keep the local files for offline/OnionShare.
+- secp256k1 is vendored (`secp256k1.js`) and preferred; `nostr.js` still keeps an esm.sh fallback import when the vendored global is missing.
+- Guest `cipher_identity_pack` is wrapped with PBKDF2-SHA-256 600k + AES-GCM and the recovery phrase is never stored — but the persist modal only *shows* the phrase once; no copy-all button backups to a file yet.
+- Channel/`openpgp` PGP keys are not backed up automatically on desktop builds.
+- Guest sessions persist no Nostr keys (transport pubkey is regenerated per unlock) — saved identities will see a different Nostr pubkey after unlock.

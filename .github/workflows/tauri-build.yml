@@ -48,6 +48,10 @@ jobs:
         working-directory: app/tauri
         run: npm ci
 
+      - name: Sync web snapshot (app/ -> tauri/web)
+        working-directory: app/tauri
+        run: npm run build:web
+
       - name: Install Tauri system dependencies (Ubuntu)
         if: matrix.platform == 'ubuntu-22.04'
         run: |

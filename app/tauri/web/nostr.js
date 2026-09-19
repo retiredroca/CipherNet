@@ -17,9 +17,6 @@ const DEFAULT_RELAYS = [
   'ws://jgqaglhztewuqpfbmxcwbclsuddprvqvxcjwkiohbkvgkoxjmbsrj6qd.onion',
 ];
 
-// NIP-28 channel IDs — one per CIPHER//NET channel
-const CHANNEL_IDS = {};
-
 // ── State ────────────────────────────────────────────────
 const nostrState = {
   privKey:    null,   // secp256k1 private key (Uint8Array, 32 bytes)
@@ -31,15 +28,46 @@ const nostrState = {
   onStatus:   null,   // callback(url, status)
 };
 
-// ── Load secp256k1 from esm.sh ───────────────────────────
+// ── Load secp256k1 (vendored bundle preferred, esm.sh fallback) ──
 let _schnorr = null;
+let _secp256k1 = null;
+
+function vendoredSecp256k1() {
+  if (window.nobleSecp256k1) {
+    _schnorr    = _schnorr    || window.nobleSecp256k1.schnorr || null;
+    _secp256k1  = _secp256k1  || window.nobleSecp256k1.secp256k1 || null;
+  }
+}
 
 async function loadSecp256k1() {
   if (_schnorr) return _schnorr;
+  vendoredSecp256k1();
+  if (_schnorr) return _schnorr;
   const mod = await import('https://esm.sh/@noble/curves@1.4.0/secp256k1.js');
-  _schnorr = mod.schnorr || (mod.secp256k1 && mod.secp256k1.schnorr);
+  _schnorr   = mod.schnorr || (mod.secp256k1 && mod.secp256k1.schnorr);
+  _secp256k1 = mod.secp256k1 || null;
   if (!_schnorr) throw new Error('secp256k1 schnorr not found in @noble/curves');
   return _schnorr;
+}
+
+async function loadCurve() {
+  if (_secp256k1) return _secp256k1;
+  vendoredSecp256k1();
+  if (_secp256k1) return _secp256k1;
+  await loadSecp256k1();
+  if (!_secp256k1) throw new Error('secp256k1 curve (ECDH) not available');
+  return _secp256k1;
+}
+
+async function ecdhSharedPoint(privHex, pubHex) {
+  const curve = await loadCurve();
+  if (typeof curve.getSharedSecret === 'function') {
+    return curve.getSharedSecret(hexToBytes(privHex), pubHex); // projectable
+  }
+  // Fallback: ECDH via ProjectivePoint multiply
+  const pt  = curve.ProjectivePoint.fromHex(pubHex);
+  const d   = curve.utils.normPrivateKeyToScalar(hexToBytes(privHex));
+  return pt.multiply(d).toRawBytes(true);
 }
 
 // ── secp256k1 helpers ────────────────────────────────────
@@ -108,8 +136,7 @@ async function buildEvent(kind, content, tags, privKey, pubKeyHex) {
 // Used for DM transport layer (inner payload is already CIPHER//NET encrypted)
 
 async function nip44Encrypt(plaintext, senderPrivHex, recipientPubHex) {
-  const schnorr       = await loadSecp256k1();
-  const sharedPoint   = schnorr.getSharedSecret(hexToBytes(senderPrivHex), '02' + recipientPubHex);
+  const sharedPoint   = await ecdhSharedPoint(senderPrivHex, '02' + recipientPubHex);
   const sharedX       = sharedPoint.slice(1, 33); // x-coordinate only
   const keyMaterial   = await crypto.subtle.importKey('raw', sharedX, 'HKDF', false, ['deriveKey']);
   const salt          = crypto.getRandomValues(new Uint8Array(32));
@@ -128,13 +155,12 @@ async function nip44Encrypt(plaintext, senderPrivHex, recipientPubHex) {
 }
 
 async function nip44Decrypt(b64payload, recipientPrivHex, senderPubHex) {
-  const schnorr     = await loadSecp256k1();
   const payload     = Uint8Array.from(atob(b64payload), c => c.charCodeAt(0));
   if (payload[0] !== 2) throw new Error('Unsupported NIP-44 version');
   const salt        = payload.slice(1, 33);
   const iv          = payload.slice(33, 45);
   const ct          = payload.slice(45);
-  const sharedPoint = schnorr.getSharedSecret(hexToBytes(recipientPrivHex), '02' + senderPubHex);
+  const sharedPoint = await ecdhSharedPoint(recipientPrivHex, '02' + senderPubHex);
   const sharedX     = sharedPoint.slice(1, 33);
   const keyMaterial = await crypto.subtle.importKey('raw', sharedX, 'HKDF', false, ['deriveKey']);
   const aesKey      = await crypto.subtle.deriveKey(
@@ -159,9 +185,9 @@ function saveRelayList(relays) {
 }
 
 function connectRelay(url) {
-  if (nostrState.relays[url] &&
-      nostrState.relays[url].ws &&
-      nostrState.relays[url].ws.readyState <= 1) return; // already connected/connecting
+  const existing = nostrState.relays[url];
+  if (existing && existing.ws && existing.ws.readyState <= 1) return; // already connected/connecting
+  if (existing && existing.reconnectTimer) return; // a reconnect is already scheduled
 
   let ws;
   try { ws = new WebSocket(url); } catch (e) {
@@ -170,10 +196,12 @@ function connectRelay(url) {
     return;
   }
 
-  nostrState.relays[url] = { ws, status: 'connecting', subIds: new Set() };
+  nostrState.relays[url] = { ...existing, ws, status: 'connecting', subIds: new Set(), reconnectDelay: existing?.reconnectDelay || 5000 };
   setRelayStatus(url, 'connecting');
 
   ws.onopen = () => {
+    const relay = nostrState.relays[url];
+    if (relay) relay.reconnectDelay = 5000; // reset backoff after a successful connection
     setRelayStatus(url, 'connected');
     console.log('[Nostr] Connected to', url);
     // Re-subscribe all active subscriptions
@@ -190,8 +218,15 @@ function connectRelay(url) {
   ws.onerror = () => setRelayStatus(url, 'error');
   ws.onclose = () => {
     setRelayStatus(url, 'disconnected');
-    // Reconnect after 5s
-    setTimeout(() => connectRelay(url), 5000);
+    const relay = nostrState.relays[url];
+    if (!relay) return;
+    const delay = relay.reconnectDelay || 5000;
+    relay.reconnectDelay = Math.min(delay * 1.5, 30000); // exponential backoff, capped at 30s
+    clearTimeout(relay.reconnectTimer);
+    relay.reconnectTimer = setTimeout(() => {
+      relay.reconnectTimer = null;
+      connectRelay(url);
+    }, delay);
   };
 }
 
@@ -216,7 +251,12 @@ function handleRelayMessage(url, msg) {
   if (type === 'EVENT') {
     const [subId, event] = args;
     const sub = nostrState.subs[subId];
-    if (sub && sub.onEvent) sub.onEvent(event, url);
+    if (sub && sub.onEvent) {
+      nostrVerify(event.sig, event.id, event.pubkey).then(valid => {
+        if (valid) sub.onEvent(event, url);
+        else console.warn('[Nostr] Rejected event with invalid signature from', url);
+      }).catch(err => console.warn('[Nostr] Verify error from', url, err));
+    }
   } else if (type === 'NOTICE') {
     console.log('[Nostr] NOTICE from', url, args[0]);
   } else if (type === 'EOSE') {
@@ -256,30 +296,50 @@ function unsubscribeRelays(subId) {
 }
 
 // ── Nostr key persistence ────────────────────────────────
+// Transport private key is stored AES-256-GCM wrapped with a key derived
+// from the CIPHER//NET signing identity. No plaintext at rest. If no
+// identity is available the key is kept in memory only (ephemeral).
 
-function saveNostrKeys(privKey, pubKey) {
-  localStorage.setItem('cipher_nostr_priv', btoa(String.fromCharCode(...privKey)));
-  localStorage.setItem('cipher_nostr_pub', pubKey);
+const NOSTR_WRAP_KEY = 'cipher_nostr_wrap';
+
+async function saveNostrKeys(privKey, pubKey, identity) {
+  nostrState.privKey = privKey;
+  nostrState.pubKey  = pubKey;
+  if (identity && identity.signingKey && identity.algo && window.CipherNet.Crypto) {
+    try {
+      const wrapped = await window.CipherNet.Crypto.wrapWithIdentityKey(identity.signingKey, identity.algo, privKey);
+      localStorage.setItem(NOSTR_WRAP_KEY, JSON.stringify({ pub: pubKey, wrapped }));
+      localStorage.removeItem('cipher_nostr_priv');
+      localStorage.removeItem('cipher_nostr_pub');
+      return;
+    } catch (e) { console.warn('[Nostr] Key wrap failed — keeping in memory only:', e.message); }
+  }
+  localStorage.removeItem(NOSTR_WRAP_KEY);
+  localStorage.removeItem('cipher_nostr_priv');
+  localStorage.removeItem('cipher_nostr_pub');
 }
 
-function loadNostrKeys() {
-  const priv = localStorage.getItem('cipher_nostr_priv');
-  const pub  = localStorage.getItem('cipher_nostr_pub');
-  if (!priv || !pub) return null;
-  return {
-    privKey: Uint8Array.from(atob(priv), c => c.charCodeAt(0)),
-    pubKey:  pub,
-  };
+async function loadNostrKeys(identity) {
+  if (!identity || !identity.signingKey || !identity.algo || !window.CipherNet.Crypto) return null;
+  const stored = localStorage.getItem(NOSTR_WRAP_KEY);
+  if (!stored) return null;
+  try {
+    const obj    = JSON.parse(stored);
+    const priv   = await window.CipherNet.Crypto.unwrapWithIdentityKey(identity.signingKey, identity.algo, obj.wrapped);
+    if (!priv || priv.length !== 32) return null;
+    return { privKey: priv, pubKey: obj.pub };
+  } catch { return null; }
 }
 
-// ── NIP-28 channel ID derivation ────────────────────────
-// Each CIPHER//NET channel maps to a deterministic Nostr channel ID
+// ── NIP-28 channel identifiers ────────────────────────────
+// A CIPHER//NET channel's identifier IS its Nostr channel id.
+// Locally created and discovery-imported channels derive the same
+// SHA-256 ("ciphernet-channel-v2:<name>:<ownerFp>") value from the
+// public kind-40 metadata, so every participant tags messages with
+// the identical id. No separate legacy derivation.
 
-async function getChannelId(channelName) {
-  if (CHANNEL_IDS[channelName]) return CHANNEL_IDS[channelName];
-  const id = await sha256Hex('ciphernet-channel-v1:' + channelName);
-  CHANNEL_IDS[channelName] = id;
-  return id;
+function getChannelId(channelId) {
+  return channelId;
 }
 
 // ── Public API ───────────────────────────────────────────
@@ -287,16 +347,16 @@ async function getChannelId(channelName) {
 const Nostr = {
 
   // Initialize: load or generate transport keypair, connect to relays
-  async init(onMessage, onStatus) {
+  async init(onMessage, onStatus, identity) {
     nostrState.onMessage = onMessage;
     nostrState.onStatus  = onStatus;
 
-    // Load or generate secp256k1 transport keypair
-    let keys = loadNostrKeys();
+    // Load or generate secp256k1 transport keypair (encrypted at rest)
+    let keys = await loadNostrKeys(identity);
     if (!keys) {
       try {
         keys = await generateNostrKeypair();
-        saveNostrKeys(keys.privKey, keys.pubKey);
+        await saveNostrKeys(keys.privKey, keys.pubKey, identity);
       } catch (e) {
         console.warn('[Nostr] secp256k1 not available yet:', e.message);
         return false;
@@ -338,9 +398,9 @@ const Nostr = {
   },
 
   // Publish a CIPHER//NET channel message via NIP-28 (kind 42)
-  async publishChannelMessage(channelName, ciphertextPayload) {
+  async publishChannelMessage(channelId, ciphertextPayload) {
     if (!nostrState.privKey) throw new Error('Nostr not initialized');
-    const chanId = await getChannelId(channelName);
+    const chanId = getChannelId(channelId);
     const event  = await buildEvent(
       42,
       ciphertextPayload,           // already AES-256-GCM encrypted
@@ -354,8 +414,8 @@ const Nostr = {
   },
 
   // Subscribe to a CIPHER//NET channel (NIP-28, kind 42)
-  async subscribeChannel(channelName, onEvent, since) {
-    const chanId = await getChannelId(channelName);
+  async subscribeChannel(channelId, onEvent, since) {
+    const chanId = getChannelId(channelId);
     return subscribeRelays({
       kinds: [42],
       '#e':  [chanId],

@@ -69,7 +69,6 @@ app/
 ├── embed-fonts.py       — optional: bakes fonts as base64 for fully offline use
 ├── openpgp.min.js       — OpenPGP.js v5 (download separately — see GET_OPENPGP.md)
 ├── GET_OPENPGP.md       — download instructions for openpgp.min.js
-├── landing.html         — GitHub Pages landing page
 ├── channels.js          — Nostr channels module (global window.CipherChannels)
 ├── nostr.js             — Nostr protocol module (global window.CipherNostr)
 ├── ml-dsa.js            — ML-DSA signature scheme (PQ)
@@ -80,7 +79,7 @@ app/
 ├── download-noble-pq.sh — download helper for offline noble-post-quantum
 ├── tauri/               — Tauri desktop wrapper (Rust)
 ├── README.md            — app-level documentation
-index.html          — root-level legacy entry (inline styles)
+index.html          — GitHub Pages landing page
 AGENTS.md           — AI agent instructions for this repo
 oc.sh               — shell helper
 LICENSE             — AGPL-3.0

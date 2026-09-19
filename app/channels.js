@@ -27,6 +27,14 @@
 const CHANNELS_KEY  = 'cipher_channels_v2';
 const JOINED_KEY    = 'cipher_joined_channels';
 const INVITES_KEY   = 'cipher_channel_invites';
+const ARCHIVED_KEY  = 'cipher_archived_channels';
+
+function getArchivedSet() {
+  try {
+    const arr = JSON.parse(localStorage.getItem(ARCHIVED_KEY) || '[]');
+    return new Set(Array.isArray(arr) ? arr : []);
+  } catch { return new Set(); }
+}
 
 // ── Channel schema ───────────────────────────────────────
 /*
@@ -59,6 +67,8 @@ const channelState = {
   channels:    {},   // id → Channel
   joined:      [],   // [id, ...] ordered list of joined channel IDs
   activeKeys:  {},   // id → CryptoKey (AES-GCM write key)
+  openKeys:    {},   // id → CryptoKey (deterministic public key for open channels)
+  passphrases: {},   // id → passphrase (in-memory only, never persisted)
   subs:        {},   // id → nostrSubId
   onUpdate:    null, // callback() when channel list changes
 };
@@ -78,6 +88,29 @@ function loadChannels() {
     channelState.channels = {};
     channelState.joined   = [];
   }
+  for (const id of Object.keys(channelState.channels || {})) {
+    const ch = channelState.channels[id];
+    if (!ch || typeof ch !== 'object') { delete channelState.channels[id]; continue; }
+    // Purge stale archived channels: since archive() now fully deletes, an
+    // `archived: true` entry is an orphan from a failed pre-update archive —
+    // tombstone it and drop it so the name/id become reusable.
+    if (ch.archived === true) {
+      const tomb = getArchivedSet();
+      tomb.add(id);
+      localStorage.setItem(ARCHIVED_KEY, JSON.stringify(Array.from(tomb)));
+      channelState.joined = (channelState.joined || []).filter(j => j !== id);
+      delete channelState.channels[id];
+      localStorage.removeItem(CHAN_KEY_PREFIX + id);
+      localStorage.removeItem('cipher_chan_key_' + id);
+      localStorage.removeItem('cipher_chan_pass_' + id);
+      continue;
+    }
+    const rawType = ch.type;
+    ch.type = (rawType === 'private') ? 'private' : 'public';
+    if (Array.isArray(ch.admins)) ch.admins = ch.admins.filter(x => typeof x === 'string');
+    if (Array.isArray(ch.banned)) ch.banned = ch.banned.filter(x => typeof x === 'string');
+  }
+  if (!Array.isArray(channelState.joined)) channelState.joined = [];
 }
 
 // ── Channel ID derivation ────────────────────────────────
@@ -91,35 +124,74 @@ async function deriveChannelId(name, ownerFp) {
 }
 
 // ── Passphrase key storage ───────────────────────────────
+// The raw passphrase is kept in memory only. The derived AES key is wrapped
+// with an identity-bound key and stored — plaintext passphrases never touch
+// localStorage ("cipher_chan_pass_<id>" was plaintext; those are migrated).
 
-function saveChannelKey(channelId, passphrase) {
-  localStorage.setItem('cipher_chan_pass_' + channelId, passphrase);
+const CHAN_KEY_PREFIX = 'cipher_chan_key_v2_';
+
+function storedChannelKeyBlob(channelId) {
+  return localStorage.getItem(CHAN_KEY_PREFIX + channelId) ||
+         localStorage.getItem('cipher_chan_key_' + channelId); // legacy wrap
 }
 
-function loadChannelPassphrase(channelId) {
-  return localStorage.getItem('cipher_chan_pass_' + channelId);
+async function saveChannelKey(channelId, passphrase, aesKey) {
+  const me  = window.CipherNet && window.CipherNet.State && window.CipherNet.State.state.me;
+  if (me && me.signingKey && me.algo) {
+    try {
+      const raw = await crypto.subtle.exportKey('raw', aesKey);
+      const wrapped = await window.CipherNet.Crypto.wrapWithIdentityKey(me.signingKey, me.algo, raw);
+      localStorage.setItem(CHAN_KEY_PREFIX + channelId, wrapped);
+      localStorage.removeItem('cipher_chan_pass_' + channelId);
+      localStorage.removeItem('cipher_chan_key_' + channelId);
+    } catch { /* identity not available — lean on in-memory key */ }
+  }
+  channelState.activeKeys[channelId] = aesKey;
+  channelState.passphrases[channelId] = passphrase;
+}
+
+async function loadChannelKey(channelId) {
+  const blob = storedChannelKeyBlob(channelId);
+  if (!blob) return null;
+  const me = window.CipherNet && window.CipherNet.State && window.CipherNet.State.state.me;
+  if (me && me.signingKey && me.algo) {
+    try {
+      const raw = await window.CipherNet.Crypto.unwrapWithIdentityKey(me.signingKey, me.algo, blob);
+      if (!raw || raw.length !== 32) return null;
+      return crypto.subtle.importKey('raw', raw, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
+    } catch { return null; }
+  }
+  return null;
 }
 
 function clearChannelKey(channelId) {
+  localStorage.removeItem(CHAN_KEY_PREFIX + channelId);
+  localStorage.removeItem('cipher_chan_key_' + channelId);
   localStorage.removeItem('cipher_chan_pass_' + channelId);
-  localStorage.removeItem('cipher_chan_key_'  + channelId);
   delete channelState.activeKeys[channelId];
+  delete channelState.passphrases[channelId];
 }
 
 // ── Admin event signing ──────────────────────────────────
 // Admin events are signed with the owner/admin's CIPHER//NET signing key
 // and stored as Nostr kind 9734 events OR in localStorage for offline use.
 
+// CipherNet.Crypto loads AFTER channels.js in the script order, so it is
+// resolved lazily at call time (never at module load).
+function CRYPTO() {
+  return (window.CipherNet && window.CipherNet.Crypto) || {};
+}
+
 async function signAdminEvent(payload, signingKey, algo) {
   const str = JSON.stringify(payload);
-  const sig  = await signData(str, signingKey, algo);
+  const sig  = await CRYPTO().signData(str, signingKey, algo);
   return { payload, sig, ts: Date.now() };
 }
 
 async function verifyAdminEvent(event, pubKeyPem, algo) {
   try {
     const str = JSON.stringify(event.payload);
-    return verifyData(str, event.sig, pubKeyPem, algo);
+    return CRYPTO().verifyData(str, event.sig, pubKeyPem, algo);
   } catch { return false; }
 }
 
@@ -135,7 +207,7 @@ async function generateInvite(channelId, inviterFp, inviterSigningKey, inviterAl
                   .map(b => b.toString(16).padStart(2,'0')).join(''),
   };
   const str = JSON.stringify(token);
-  const sig  = await signData(str, inviterSigningKey, inviterAlgo);
+  const sig  = await CRYPTO().signData(str, inviterSigningKey, inviterAlgo);
   const invite = { token, sig };
   return btoa(JSON.stringify(invite));
 }
@@ -182,6 +254,10 @@ const Channels = {
 
   get(id) { return channelState.channels[id] || null; },
 
+  isSubscribed(channelId) {
+    return !!channelState.subs[channelId];
+  },
+
   getRole(channelId, fingerprint) {
     const ch = channelState.channels[channelId];
     if (!ch) return null;
@@ -189,7 +265,7 @@ const Channels = {
     if (ch.ownerFp === fingerprint)        return 'owner';
     if (ch.admins.includes(fingerprint))   return 'admin';
     if (channelState.joined.includes(channelId)) {
-      const pass = loadChannelPassphrase(channelId);
+      const pass = channelState.passphrases[channelId] || storedChannelKeyBlob(channelId);
       return pass ? 'member' : 'guest';
     }
     return 'guest';
@@ -216,6 +292,15 @@ const Channels = {
     return channelState.activeKeys[channelId] || null;
   },
 
+  // Open channels have no secret — a deterministic, public AES key is
+  // derived from the channel id alone so every participant can read/write.
+  async getOpenKey(channelId) {
+    if (channelState.openKeys[channelId]) return channelState.openKeys[channelId];
+    const key = await deriveChannelAESKeyBest(channelId, channelId);
+    channelState.openKeys[channelId] = key;
+    return key;
+  },
+
   // ── Create channel ──────────────────────────────────────
 
   async create(opts, ownerFp, ownerPubKeyPem, ownerSigningKey, ownerAlgo) {
@@ -240,9 +325,9 @@ const Channels = {
     if (!channelState.joined.includes(id)) channelState.joined.unshift(id);
 
     if (passphrase) {
-      saveChannelKey(id, passphrase);
-      // Derive and cache the AES key
-      channelState.activeKeys[id] = await deriveChannelAESKey(passphrase, id);
+      const aesKey = await deriveChannelAESKeyBest(passphrase, id);
+      saveChannelKey(id, passphrase, aesKey);
+      channelState.activeKeys[id] = aesKey;
     }
 
     saveChannels();
@@ -269,8 +354,9 @@ const Channels = {
       channelState.joined.unshift(channelId);
 
     if (passphrase) {
-      saveChannelKey(channelId, passphrase);
-      channelState.activeKeys[channelId] = await deriveChannelAESKey(passphrase, channelId);
+      const aesKey = await deriveChannelAESKeyBest(passphrase, channelId);
+      saveChannelKey(channelId, passphrase, aesKey);
+      channelState.activeKeys[channelId] = aesKey;
     } else if (!ch.passphrase) {
       // No passphrase required — guest/read mode
     }
@@ -286,7 +372,7 @@ const Channels = {
     const { token, sig } = await parseInvite(b64Invite);
     // Verify invite signature
     const tokenStr = JSON.stringify(token);
-    const valid    = await verifyData(tokenStr, sig, inviterPubKeyPem, inviterAlgo);
+    const valid    = await CRYPTO().verifyData(tokenStr, sig, inviterPubKeyPem, inviterAlgo);
     if (!valid) throw new Error('Invite signature invalid');
 
     const ch = channelState.channels[token.channelId];
@@ -315,8 +401,9 @@ const Channels = {
 
     ch.passphrase = !!newPassphrase;
     if (newPassphrase) {
-      saveChannelKey(channelId, newPassphrase);
-      channelState.activeKeys[channelId] = await deriveChannelAESKey(newPassphrase, channelId);
+      const aesKey = await deriveChannelAESKeyBest(newPassphrase, channelId);
+      saveChannelKey(channelId, newPassphrase, aesKey);
+      channelState.activeKeys[channelId] = aesKey;
     } else {
       clearChannelKey(channelId);
     }
@@ -420,17 +507,32 @@ const Channels = {
     if (!ch) throw new Error('Channel not found');
     if (ch.ownerFp !== actorFp) throw new Error('Only owner can archive channel');
 
-    ch.archived = true;
-    channelState.joined = channelState.joined.filter(id => id !== channelId);
-
     const event = await signAdminEvent(
       { action: 'archive', channelId, ts: Date.now() },
       actorSigningKey, actorAlgo
     );
-    publishAdminEvent(channelId, event);
 
+    // Publish the archive event BEFORE tearing down so remote viewers see it
+    publishAdminEvent(channelId, event);
     if (window.CipherNostr && window.CipherNostr.isReady())
-      publishChannelUpdate(ch).catch(() => {});
+      publishChannelUpdate({ ...ch, archived: true }).catch(() => {});
+
+    // Fully remove the channel so its name/id become reusable
+    delete channelState.channels[channelId];
+    channelState.joined = channelState.joined.filter(id => id !== channelId);
+    clearChannelKey(channelId);
+    delete channelState.openKeys[channelId];
+    if (channelState.subs[channelId] && window.CipherNostr) {
+      window.CipherNostr.unsubscribe(channelState.subs[channelId]);
+    }
+    delete channelState.subs[channelId];
+    localStorage.removeItem(CHANNELS_KEY);
+    localStorage.removeItem(JOINED_KEY);
+
+    // Tombstone: prevent discovery from resurrecting the channel
+    const tomb = getArchivedSet();
+    tomb.add(channelId);
+    localStorage.setItem(ARCHIVED_KEY, JSON.stringify(Array.from(tomb)));
 
     saveChannels();
     if (channelState.onUpdate) channelState.onUpdate();
@@ -445,11 +547,12 @@ const Channels = {
     if (role !== 'owner' && role !== 'admin')
       throw new Error('Only owner or admin can generate invites');
 
-    const passphrase = loadChannelPassphrase(channelId);
+    const passphrase = channelState.passphrases[channelId] ||
+                     localStorage.getItem('cipher_chan_pass_' + channelId); // legacy read, migrated on restore
+    if (!passphrase)
+      throw new Error('Re-enter the channel passphrase in the channel header (SET KEY) to generate an invite.');
     return generateInvite(channelId, actorFp, actorSigningKey, actorAlgo, passphrase);
   },
-
-  joinViaInvite,
 
   // ── Import channel from Nostr event ─────────────────────
 
@@ -457,27 +560,50 @@ const Channels = {
     try {
       const meta = JSON.parse(kind40Event.content);
       if (!meta.name || !meta.ciphernet) return; // not a CIPHER//NET channel
+      if (!/^[a-zA-Z0-9_\-\s]{1,64}$/.test(meta.name)) return;
 
-      const id = kind40Event.id;
-      if (channelState.channels[id]) return; // already known
+      const rawType   = meta.ciphernet.type || 'public';
+      const safeType  = (rawType === 'private') ? 'private' : 'public';
+      const safeOwner = (typeof meta.ciphernet.ownerFp === 'string' && /^[0-9a-fA-F]{16}$/.test(meta.ciphernet.ownerFp))
+                      ? meta.ciphernet.ownerFp.toLowerCase() : '';
 
-      channelState.channels[id] = {
+      // The channel id MUST match what the creator derives locally, so use the
+      // same deterministic derivation (not the kind-40 event id).
+      const id = await deriveChannelId(meta.name.trim(), safeOwner);
+      if (!id) return;
+      if (getArchivedSet().has(id)) return; // user archived this channel — do not resurrect
+
+      const existing = channelState.channels[id];
+      const merged = {
         id,
-        name:        meta.name,
-        description: meta.about || '',
-        type:        meta.ciphernet.type || 'public',
-        ownerFp:     meta.ciphernet.ownerFp || '',
-        ownerPub:    meta.ciphernet.ownerPub || '',
-        created:     kind40Event.created_at * 1000,
-        archived:    meta.ciphernet.archived || false,
-        passphrase:  meta.ciphernet.passphrase || false,
-        admins:      meta.ciphernet.admins || [],
-        banned:      meta.ciphernet.banned || [],
-        nostrId:     id,
+        name:        meta.name.trim(),
+        description: String(meta.about || '').slice(0, 200),
+        type:        safeType,
+        ownerFp:     safeOwner,
+        ownerPub:    typeof meta.ciphernet.ownerPub === 'string' ? meta.ciphernet.ownerPub : '',
+        created:     existing ? existing.created : kind40Event.created_at * 1000,
+        archived:    !!meta.ciphernet.archived,
+        passphrase:  !!meta.ciphernet.passphrase,
+        admins:      Array.isArray(meta.ciphernet.admins) ? meta.ciphernet.admins.filter(x => typeof x === 'string') : [],
+        banned:      Array.isArray(meta.ciphernet.banned) ? meta.ciphernet.banned.filter(x => typeof x === 'string') : [],
+        nostrId:     existing && existing.nostrId ? existing.nostrId : kind40Event.id,
       };
+      // Keep the local id wholesale (id is identity; never re-derived)
+      channelState.channels[id] = merged;
+
+      if (!channelState.joined.includes(id))
+        channelState.joined.push(id);
 
       saveChannels();
       if (channelState.onUpdate) channelState.onUpdate();
+
+      // Subscribe to live messages for the newly discovered channel
+      if (window.CipherNostr && window.CipherNostr.isReady() && !channelState.subs[id]
+          && (channelState.joined.includes(id))) {
+        channelState.subs[id] = await window.CipherNostr.subscribeChannel(
+          id, (event) => handleIncomingNostrMessage(id, event)
+        );
+      }
     } catch { /* invalid event */ }
   },
 
@@ -485,9 +611,9 @@ const Channels = {
 
   async activateKey(channelId, passphrase) {
     try {
-      const key = await deriveChannelAESKey(passphrase, channelId);
+      const key = await deriveChannelAESKeyBest(passphrase, channelId);
       channelState.activeKeys[channelId] = key;
-      saveChannelKey(channelId, passphrase);
+      saveChannelKey(channelId, passphrase, key);
       return true;
     } catch { return false; }
   },
@@ -495,13 +621,30 @@ const Channels = {
   // ── Restore saved keys on login ──────────────────────────
 
   async restoreKeys() {
+    const me = window.CipherNet && window.CipherNet.State && window.CipherNet.State.state.me;
     for (const id of channelState.joined) {
-      const pass = loadChannelPassphrase(id);
-      if (pass) {
+      if (channelState.activeKeys[id]) continue;
+
+      // Migrate legacy plaintext passphrase → wrapped derived key
+      const legacy = localStorage.getItem('cipher_chan_pass_' + id);
+      if (legacy) {
         try {
-          channelState.activeKeys[id] = await deriveChannelAESKey(pass, id);
-        } catch { /* key derivation failed, passphrase may have changed */ }
+          const aesKey = await deriveChannelAESKeyBest(legacy, id);
+          channelState.activeKeys[id] = aesKey;
+          channelState.passphrases[id] = legacy;
+          if (me && me.signingKey && me.algo) {
+            const raw = await crypto.subtle.exportKey('raw', aesKey);
+            localStorage.setItem(CHAN_KEY_PREFIX + id,
+              await window.CipherNet.Crypto.wrapWithIdentityKey(me.signingKey, me.algo, raw));
+          }
+          localStorage.removeItem('cipher_chan_pass_' + id);
+          localStorage.removeItem('cipher_chan_key_' + id);
+          continue;
+        } catch { /* broken legacy entry — ignore */ }
       }
+
+      const aesKey = await loadChannelKey(id);
+      if (aesKey) channelState.activeKeys[id] = aesKey;
     }
   },
 
@@ -525,14 +668,38 @@ const Channels = {
 
 // ── AES key derivation (same as before but keyed to channel ID) ──
 
-async function deriveChannelAESKey(passphrase, channelId) {
+async function deriveChannelAESKey(passphrase, channelId, iterations) {
   const enc  = new TextEncoder();
   const base = await crypto.subtle.importKey('raw', enc.encode(passphrase), 'PBKDF2', false, ['deriveKey']);
   const salt = await crypto.subtle.digest('SHA-256', enc.encode('ciphernet-channel-v2:' + channelId));
   return crypto.subtle.deriveKey(
-    { name: 'PBKDF2', salt, iterations: 200000, hash: 'SHA-256' },
-    base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']
+    { name: 'PBKDF2', salt, iterations: iterations || 600000, hash: 'SHA-256' },
+    base, { name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']
   );
+}
+
+// Best-effort key derivation with backwards compatibility: try the modern
+// 600k iterations first, then fall back to the legacy 200k when the channel
+// has history that can only be read with the legacy key.
+async function channelKeyMatchesHistory(aesKey, channelId) {
+  let first = null;
+  try {
+    const arr = JSON.parse(localStorage.getItem('cipher_msgs_ch_' + channelId) || '[]');
+    first = Array.isArray(arr) && arr.length ? arr[0] : null;
+  } catch { first = null; }
+  if (!first || typeof first.ciphertext !== 'string') return false;
+  try {
+    await CRYPTO().aesDecrypt(first.ciphertext, aesKey);
+    return true;
+  } catch { return false; }
+}
+
+async function deriveChannelAESKeyBest(passphrase, channelId) {
+  const modern = await deriveChannelAESKey(passphrase, channelId, 600000);
+  if (await channelKeyMatchesHistory(modern, channelId)) return modern;
+  const legacy = await deriveChannelAESKey(passphrase, channelId, 200000);
+  if (await channelKeyMatchesHistory(legacy, channelId)) return legacy;
+  return modern; // no history — default to modern
 }
 
 // ── Nostr publish helpers ────────────────────────────────

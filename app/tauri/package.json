@@ -3,8 +3,9 @@
   "version": "1.0.0",
   "description": "CIPHER//NET — end-to-end encrypted decentralized chat",
   "scripts": {
-    "dev":   "tauri dev",
-    "build": "tauri build"
+    "build:web": "node sync-web.js",
+    "dev":   "node sync-web.js && tauri dev",
+    "build": "node sync-web.js && tauri build"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.0.0"

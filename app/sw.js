@@ -1,13 +1,19 @@
 'use strict';
 
-const CACHE = 'ciphernet-v1';
+const CACHE = 'ciphernet-v6';
 const ASSETS = [
   './',
   './index.html',
   './app.css',
+  './openpgp.min.js',
+  './secp256k1.js',
+  './channels.js',
+  './nostr.js',
   './lib/crypto.js',
   './lib/util.js',
   './lib/state.js',
+  './lib/wordlist.js',
+  './lib/guest.js',
   './lib/render.js',
   './lib/messaging.js',
   './lib/lock-screen.js',

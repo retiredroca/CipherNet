@@ -25,6 +25,7 @@
     <div class="lock-tab-bar">
       <div class="lock-tab active" id="lock-tab-register">GENERATE KEYS</div>
       <div class="lock-tab" id="lock-tab-login">IMPORT KEY</div>
+      <div class="lock-tab hidden" id="lock-tab-unlock">UNLOCK</div>
     </div>
 
     <!-- REGISTER -->
@@ -104,7 +105,24 @@
       </div>
     </div>
 
-    <div class="lock-footer">AES-256-GCM · ECDSA P-256/P-384/RSA-PSS · ECDH P-256 · PBKDF2 · Web Crypto API · No external requests</div>
+    <!-- UNLOCK -->
+    <div id="lock-panel-unlock" class="hidden">
+      <div class="field-hint">Recover your saved identity with the 24-word recovery phrase you saved when you persisted it.</div>
+      <div class="field-group">
+        <label class="field-label" for="unlock-phrase">24-WORD RECOVERY PHRASE</label>
+        <textarea class="field-input mono-sm" id="unlock-phrase" rows="5"
+          placeholder="word word word ..."
+          spellcheck="false"></textarea>
+      </div>
+      <div id="unlock-error" class="login-error hidden"></div>
+      <div class="lock-btn-row">
+        <button class="btn btn-primary btn-wide" id="btn-unlock">UNLOCK IDENTITY</button>
+      </div>
+    </div>
+
+    <button class="btn btn-ghost btn-wide btn-guest-lock" id="btn-guest-continue">ENTER AS TEMPORARY GUEST</button>
+
+    <div class="lock-footer">AES-256-GCM · ECDSA P-256/P-384/RSA-PSS · ECDH P-256 · ML-KEM-768 · ML-DSA-65 · PBKDF2 · Web Crypto API · No external requests</div>
   </div>
 </div>
 
@@ -133,6 +151,15 @@
   <div class="main">
     <!-- SIDEBAR -->
     <div class="sidebar">
+      <!-- Guest session banner -->
+      <div class="guest-banner hidden" id="guest-banner">
+        <div class="gb-title">GUEST SESSION</div>
+        <div class="gb-sub">Temporary identity — keys in memory only, nothing saved.</div>
+        <button class="btn-tiny highlight" id="gb-persist">PERSIST IDENTITY</button>
+        <button class="btn-tiny" id="gb-export">EXPORT IDENTITY FILE</button>
+        <button class="btn-tiny" id="gb-display-name">CREATE DISPLAY NAME</button>
+        <button class="btn-tiny" id="gb-existing">USE EXISTING KEY</button>
+      </div>
       <div class="sidebar-section">
         <div class="sidebar-label">
           // Channels
@@ -224,6 +251,32 @@
     <div class="btn-row">
       <button class="btn btn-ghost" id="dm-modal-cancel">CANCEL</button>
       <button class="btn btn-primary" id="dm-modal-confirm">START ENCRYPTED DM</button>
+    </div>
+  </div>
+</div>
+
+<!-- Persist identity modal (guest → recovery phrase) -->
+<div id="persist-modal" class="modal-overlay hidden">
+  <div class="modal-box">
+    <div class="modal-title">// PERSIST IDENTITY</div>
+    <div class="modal-sub">Save this identity to this browser. Recover it on any visit (or after clearing site data) with your recovery phrase.</div>
+    <div class="persist-phrase" id="persist-phrase"></div>
+    <div class="pgp-btn-row">
+      <button class="btn-tiny" id="persist-copy">COPY PHRASE</button>
+    </div>
+    <div class="field-group">
+      <label class="field-label">DISPLAY NAME (optional)</label>
+      <input class="field-input" id="persist-name" type="text" maxlength="32" placeholder="your_handle" autocomplete="off" spellcheck="false">
+      <div class="field-hint">Letters, numbers, underscores. 3-32 chars. Applies immediately.</div>
+    </div>
+    <div class="check-row">
+      <input type="checkbox" id="persist-confirm">
+      <label for="persist-confirm">I have saved my 24-word recovery phrase securely. Losing it means losing this identity.</label>
+    </div>
+    <div id="persist-error" class="login-error hidden"></div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" id="persist-cancel">CANCEL</button>
+      <button class="btn btn-primary" id="persist-save">SAVE IDENTITY</button>
     </div>
   </div>
 </div>
@@ -592,14 +645,17 @@
   }
 </script>
 <script src="openpgp.min.js"></script>
+<script src="secp256k1.js"></script>
 <script src="channels.js"></script>
 <script src="nostr.js"></script>
 <script src="lib/crypto.js"></script>
 <script src="lib/util.js"></script>
 <script src="lib/state.js"></script>
+<script src="lib/wordlist.js"></script>
 <script src="lib/render.js"></script>
 <script src="lib/messaging.js"></script>
 <script src="lib/lock-screen.js"></script>
+<script src="lib/guest.js"></script>
 <script src="lib/identity.js"></script>
 <script src="lib/deterrents.js"></script>
 <script src="lib/theme.js"></script>
