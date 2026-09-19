@@ -157,6 +157,14 @@ Makes a one-time request from your machine to Google Fonts, then splices the fon
 
 PBKDF2-SHA-256 (600,000 iterations; the legacy 200,000 is auto-detected by test-decrypting the oldest stored message) derives an AES-256-GCM key from a shared passphrase. Salt: `SHA-256("cipher-channel:<channel>")`. Passphrase-less open channels instead use a deterministic public AES key derived from the unified channel id (`ciphernet-channel-v2:<name>:<ownerFingerprint>`) — no shared secret. Each message has a fresh random 12-byte IV. The entire signed envelope is encrypted — only the author hint (6 hex chars of fingerprint) is stored in plaintext.
 
+### Key derivation & key-reuse model
+
+- **Channel keys are deterministic, not salted with time or session.** For v2 channels the salt is `SHA-256("ciphernet-channel-v2:" + channelId)`; the channel id itself is `SHA-256("ciphernet-channel-v2:<name>:<ownerFingerprint>")`. The identical channel + passphrase therefore yields the identical key forever — this is deliberate, so every participant can decrypt shared history across devices, identities, and sessions.
+- **Domain separation:** the channel id is part of the salt, so the *same passphrase on two different channels produces two different keys* (a collision would require a SHA-256 preimage collision). Only two channels with the same id AND the same passphrase share a key — that is the intended shared-secret behavior.
+- **Never add a random/timestamped component to channel key derivation.** It would silently break decryption of existing history and cross-device sharing. Ciphertext uniqueness is provided by the fresh random 12-byte IV on every message, not by the key.
+- **Identity packs** salt each save with a fresh random 16-byte salt + 12-byte IV (PBKDF2 600k + AES-256-GCM, `crypto.js:437`) — saving twice overwrites rather than duplicates, and outputs always differ.
+- **Identity, DM, and Nostr transport keys are CSPRNG-generated** (`crypto.getRandomValues` / WebCrypto `generateKey`) — uniqueness comes from entropy, no time-salt needed (~2⁻¹²⁸ collision odds).
+
 ### Password-protected key export
 
 `CIPHER-ENC:v1:<base64(16-byte-salt + 12-byte-iv + ciphertext)>`
