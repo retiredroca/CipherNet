@@ -1,3 +1,22 @@
+/*
+ * CIPHER//NET — Self-hosted, end-to-end encrypted chat
+ * Copyright (C) 2024 retiredroca
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published
+ * by the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ * Source code: https://github.com/retiredroca/CipherNet
+ */
 window.CipherNet = window.CipherNet || {};
 (function() {
   'use strict';
@@ -138,6 +157,22 @@ window.CipherNet = window.CipherNet || {};
       LockScreen.switchLockTab('login');
     }
   });
+
+  // License / Source modal handlers (AGPL §13 remote source offer)
+  const licenseBtn = $('license-btn');
+  const licenseModal = $('license-modal');
+  const licenseClose = $('license-close');
+  if (licenseBtn && licenseModal && licenseClose) {
+    licenseBtn.addEventListener('click', () => {
+      licenseModal.classList.remove('hidden');
+    });
+    licenseClose.addEventListener('click', () => {
+      licenseModal.classList.add('hidden');
+    });
+    licenseModal.addEventListener('click', e => {
+      if (e.target === licenseModal) licenseModal.classList.add('hidden');
+    });
+  }
 
   window.CipherNet.Boot = {};
 })();
