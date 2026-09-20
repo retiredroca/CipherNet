@@ -230,11 +230,36 @@ function saveRelayList(relays) {
   localStorage.setItem(RELAY_CONFIG_KEY, JSON.stringify(relays));
 }
 
+// ── Relays & Tor context ────────────────────────────────
+// .onion relays can only be reached when the app itself is served through
+// Tor (e.g. OnionShare / Tor Browser). On a clearnet origin (.onion DNS is
+// unresolvable and ws:// is blocked as mixed content on https://), they
+// would fail forever and drag the status count. So onion relays are only
+// engaged when the page is hosted from a .onion address.
+
+function isTorContext() {
+  try { return (location.hostname || '').toLowerCase().endsWith('.onion'); }
+  catch { return false; }
+}
+
+function isOnionRelay(url) {
+  try { return new URL(url).hostname.toLowerCase().endsWith('.onion'); }
+  catch { return false; }
+}
+
 // Enabled relays — the ones actually connected/used for traffic.
 function getRelayList() {
   const enabled  = getConfiguredRelays();
   const disabled = new Set(getDisabledRelays());
-  return enabled.filter(u => !disabled.has(u));
+  const tor      = isTorContext();
+  return enabled.filter(u => {
+    if (disabled.has(u)) return false;
+    if (isOnionRelay(u) && !tor) {
+      console.warn('[Nostr] Skipping .onion relay outside Tor context:', u);
+      return false;
+    }
+    return true;
+  });
 }
 
 function connectRelay(url) {
@@ -268,8 +293,12 @@ function connectRelay(url) {
     catch (err) { console.warn('[Nostr] Parse error from', url, err); }
   };
 
-  ws.onerror = () => setRelayStatus(url, 'error');
-  ws.onclose = () => {
+  ws.onerror = e => {
+    console.warn('[Nostr] WS error from', url);
+    setRelayStatus(url, 'error');
+  };
+  ws.onclose = e => {
+    if (e && e.reason) console.warn('[Nostr] WS closed', url, 'code=' + e.code, 'reason=' + e.reason);
     setRelayStatus(url, 'disconnected');
     const relay = nostrState.relays[url];
     if (!relay) return;

@@ -159,7 +159,7 @@ By default, the app loads ML-DSA-65 / ML-KEM-768 from `esm.sh` CDN (requires int
 ### Service Worker & Caching
 
 - The app includes a Service Worker (`sw.js`) for offline use after first load
-- Cache name: `ciphernet-v9` — bump this when updating files
+- Cache name: `ciphernet-v10` — bump this when updating files
 - On first visit, assets are cached; subsequent visits work fully offline
 
 ### CSP Compliance
@@ -174,7 +174,8 @@ By default, the app loads ML-DSA-65 / ML-KEM-768 from `esm.sh` CDN (requires int
 |---------|-----|
 | "Web Crypto API unavailable" | Use Tor Browser (not regular Firefox/Chrome), ensure `.onion` address |
 | PQ keys fail to generate | Include local PQ bundles (`noble-post-quantum.js` etc.) or select ECDSA |
-| Nostr relays won't connect | Add `ws://` onion relays in Nostr settings; clearnet `wss://` may be blocked |
+| Nostr shows `0/N` relays | Normal right after enabling — connections take a few seconds, and relays hop through `connecting → disconnected → connected` during retry backoff (up to ~30s). Check per-relay dots in **Relay Settings**. |
+| Nostr count stays low on clearnet | `.onion` relays are Tor-only — they are skipped unless the app itself is served from a `.onion` address. Clearnet sites should expect 3-4/4 from the built-in `wss://` relays; one may be unreachable from your network (e.g. `relay.nostr.band` is frequently slow/blocked). |
 | "Invalid signature" on import | Ensure the private key PEM includes `-----BEGIN PRIVATE KEY-----` lines |
 
 > Use **Publish website** mode, not "Serve files".
