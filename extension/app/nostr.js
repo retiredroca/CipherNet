@@ -347,12 +347,37 @@ function publishToRelays(event) {
   let published = 0;
   for (const [url, relay] of Object.entries(nostrState.relays)) {
     if (relay.ws && relay.ws.readyState === WebSocket.OPEN) {
-      relay.ws.send(JSON.stringify(['EVENT', event]));
-      published++;
+      try { relay.ws.send(JSON.stringify(['EVENT', event])); published++; }
+      catch (e) { console.warn('[Nostr] send failed to', url, e); }
     }
+  }
+  if (published === 0) {
+    nostrState.pending[event.id] = event;   // outbox - never dropped
+    console.warn('[Nostr] No relay open - queued', event.id.slice(0, 8) + ' in outbox');
   }
   return published;
 }
+
+function flushPending() {
+  const ids = Object.keys(nostrState.pending);
+  if (!ids.length) return;
+  for (const id of ids) {
+    const ev = nostrState.pending[id];
+    if (publishToRelays(ev) > 0) delete nostrState.pending[id];
+  }
+}
+
+// self-healing flush: retries every 4s while the outbox is non-empty; stops
+// itself the moment it's drained, so there's no leak and no reconnect hook to break.
+(function outboxTimer() {
+  setTimeout(() => {
+    if (Object.keys(nostrState.pending).length) {
+      flushPending();
+      if (Object.keys(nostrState.pending).length) console.warn('[Nostr] outbox still pending, retrying');
+      outboxTimer();
+    }
+  }, 4000);
+})();
 
 function subscribeRelays(filters, onEvent) {
   const subId = 'cipher-' + (++nostrState.subCounter);
@@ -506,8 +531,7 @@ const Nostr = {
       nostrState.privKey,
       nostrState.pubKey
     );
-    const n = publishToRelays(event);
-    if (n === 0) throw new Error('No relays connected');
+    publishToRelays(event);      // parks in outbox if no relay is open
     return event.id;
   },
 
@@ -536,8 +560,7 @@ const Nostr = {
     const ephemeral   = await generateNostrKeypair();
     const wrapContent = await nip44Encrypt(JSON.stringify(seal), bytesToHex(ephemeral.privKey), recipientPubKeyHex);
     const wrap        = await buildEvent(1059, wrapContent, [['p', recipientPubKeyHex]], ephemeral.privKey, ephemeral.pubKey);
-    const n = publishToRelays(wrap);
-    if (n === 0) throw new Error('No relays connected');
+    publishToRelays(wrap);       // parks in outbox if no relay is open
     return wrap.id;
   },
 
@@ -574,8 +597,7 @@ const Nostr = {
   async publishRaw(kind, content, tags) {
     if (!nostrState.privKey) throw new Error('Nostr not initialized');
     const event = await buildEvent(kind, content, tags, nostrState.privKey, nostrState.pubKey);
-    const n = publishToRelays(event);
-    if (n === 0) throw new Error('No relays connected');
+    publishToRelays(event);      // parks in outbox if no relay is open
     return event.id;
   },
 
