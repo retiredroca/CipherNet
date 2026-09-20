@@ -28,6 +28,7 @@ import mimetypes
 import os
 import re
 import shutil
+import zipfile
 import subprocess
 import sys
 import urllib.error
