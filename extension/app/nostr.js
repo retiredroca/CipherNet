@@ -231,15 +231,12 @@ function saveRelayList(relays) {
 }
 
 // ── Relays & Tor context ────────────────────────────────
-// .onion relays can only be reached when the app itself is served through
-// Tor (e.g. OnionShare / Tor Browser). On a clearnet origin (.onion DNS is
-// unresolvable and ws:// is blocked as mixed content on https://), they
-// would fail forever and drag the status count. So onion relays are only
-// engaged when the page is hosted from a .onion address.
+// .onion relays can only be reached through Tor. On a plain cleartext origin
+// they would fail forever and drag the count down, so they're skipped unless
+// the page itself is served from a .onion origin (OnionShare / Tor Browser).
 
 function isTorContext() {
-  try { return (location.hostname || '').toLowerCase().endsWith('.onion'); }
-  catch { return false; }
+  return (location.hostname || '').toLowerCase().endsWith('.onion');
 }
 
 function isOnionRelay(url) {

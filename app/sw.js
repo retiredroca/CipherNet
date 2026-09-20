@@ -19,11 +19,12 @@
  */
 'use strict';
 
-const CACHE = 'ciphernet-v10';
+const CACHE = 'ciphernet-v11';
 const ASSETS = [
   './',
   './index.html',
   './app.css',
+  './pq-loader.js',
   './openpgp.min.js',
   './secp256k1.js',
   './channels.js',

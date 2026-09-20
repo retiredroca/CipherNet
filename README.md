@@ -80,7 +80,6 @@ app/
 ├── noble-pq-wrap.js     — PQ library wrapper
 ├── secp256k1.js         — secp256k1 for Nostr
 ├── download-noble-pq.sh — download helper for offline noble-post-quantum
-├── tauri/               — Tauri desktop wrapper (Rust) — `npm run build` in `app/tauri` refreshes the embedded `web/` snapshot first
 index.html          — GitHub Pages landing page
 AGENTS.md           — AI agent instructions for this repo
 oc.sh               — shell helper
@@ -159,13 +158,13 @@ By default, the app loads ML-DSA-65 / ML-KEM-768 from `esm.sh` CDN (requires int
 ### Service Worker & Caching
 
 - The app includes a Service Worker (`sw.js`) for offline use after first load
-- Cache name: `ciphernet-v10` — bump this when updating files
+- Cache name: `ciphernet-v11` — bump this when updating files
 - On first visit, assets are cached; subsequent visits work fully offline
 
 ### CSP Compliance
 
 - No inline scripts/styles, no external CDNs, no `eval()`
-- All scripts loaded via `<script src>` from local files
+- All scripts loaded via `<script src>` from local files (PQ loader is an external module, `pq-loader.js`)
 - Web Crypto API (`crypto.subtle`) works on `.onion` in Tor Browser
 
 ### Common Issues

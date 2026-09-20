@@ -1,47 +1,24 @@
-# CipherNet
 
-# Local helper scripts
-oc.sh
-AGENTS.md
+# Windows
+Thumbs.db
+desktop.ini
 
-# CDN libraries (download separately)
-openpgp.min.js
+# App runtime
+app/*.log
+app/*.sessions
 
-# Python font embedder
+# Tauri desktop shell dependencies/build output (removed from this repo)
+G:/Git/CipherNet/app/tauri/target/
+G:/Git/CipherNet/app/tauri/src-tauri/target/
+app/tauri/
+app/tauri/node_modules/
+
+# Extension build artifacts
+app/extension/node_modules/
+*.zip
+*.xpi
+app/dist/
+
+# PQ loader fallback: keep local bundled files, ignore nothing else
 __pycache__/
 *.pyc
-
-# Node / npm
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Tauri
-app/tauri/src-tauri/target/
-app/tauri/src-tauri/Cargo.lock
-
-# Web build output
-app/web/
-
-# OS
-.DS_Store
-Thumbs.db
-*.swp
-*.swo
-*~
-
-# IDE
-.vscode/
-.idea/
-*.iml
-
-# Secrets / keys
-*.pem
-*.key
-.env
-.env.*
-!</.env.example
-
-# Logs
-*.log

@@ -47,15 +47,6 @@ window.CipherNet = window.CipherNet || {};
     localStorage.removeItem('cipher_nostr_priv');
     localStorage.removeItem('cipher_nostr_pub');
 
-    if (window.__CIPHERNET_DESKTOP__ && window.__TAURI_INTERNALS__) {
-      import('https://unpkg.com/@tauri-apps/api@2/core').then(({ invoke }) => {
-        invoke('get_tor_proxy').then(proxy => {
-          window.__CIPHERNET_TOR_PROXY__ = proxy;
-          if (proxy) console.log('[CIPHER//NET] Tauri: Tor proxy detected:', proxy);
-        }).catch(() => {});
-      }).catch(() => {});
-    }
-
     setTimeout(function() {
       if (window.ml_dsa65 && window.ml_kem768) {
         console.log('[CIPHER//NET] \u269b PQ ready \u2014 ml_dsa65 and ml_kem768 available');
