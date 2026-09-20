@@ -243,16 +243,16 @@ def bump_manifest(version, dry):
 
 
 def zip_dir(zip_path, root):
-    """Zip the *contents* of root (not root itself) so the archives unpack cleanly."""
+    """Zip the *contents* of root (not root itself) so archives unpack cleanly."""
+    # Direct zipfile: no make_archive (it ALWAYS appends ".zip", so a base that
+    # still ends in ".zip" yields a stray "...zip.zip"), no tmp, no rename, no
+    # cross-drive move. The archive is written exactly where zip_path says.
     zip_path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = zip_path.with_suffix(".zip.tmp")
-    if tmp.exists():
-        tmp.unlink()
-    shutil.make_archive(str(tmp.with_suffix("")), "zip", root_dir=root)
-    tmp.rename(zip_path)
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        for fp in sorted(Path(root).rglob("*")):
+            if fp.is_file():
+                zf.write(fp, fp.relative_to(root).as_posix())
     log(f"built {zip_path.name}")
-
-
 def xpi_from_zip(web_zip, extension_zip):
     """An XPI is just a zip with a manifest.json at its root — reuse the built
     extension zip so the content is byte-identical to what Chrome loads."""
