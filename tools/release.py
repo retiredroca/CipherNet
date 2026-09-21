@@ -312,7 +312,7 @@ def main():
 
     set_prop(VERSIONS, "version", version)
     commit([str(PACKAGE), str(SW), str(VERSIONS)], f"Release {tag}: bump version {version}",
-           dry, sign=not args.unsignedSentence)
+           dry, sign=not args.unsigned)
 
     branch = current_branch()
     run(["git", "-C", str(_ROOT), "push", "origin", branch], dry=dry)
