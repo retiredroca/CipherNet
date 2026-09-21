@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "CIPHER//NET",
-  "version": "1.0.0",
+  "version": "1.0.3",
   "description": "Self-hosted, end-to-end encrypted chat. No servers, no accounts. Opens CIPHER//NET in a tab — fully offline, all crypto local.",
   "background": {
     "service_worker": "background.js"

@@ -19,7 +19,7 @@
  */
 'use strict';
 
-const CACHE = 'ciphernet-v11';
+const CACHE = 'ciphernet-v12';
 const ASSETS = [
   './',
   './index.html',
